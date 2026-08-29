@@ -1,4 +1,4 @@
-#####!/usr/bin/env python3
+#!/usr/bin/env python3
 
 from pathlib import Path
 import hashlib
@@ -140,5 +140,5 @@ def check_output_files():
     print(f'\nsuccess: all {len(pgm_files)} files match')
 
 if __name__ == "__main__":
-    #convert_rle_files()
+    convert_rle_files()
     check_output_files()
