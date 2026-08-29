@@ -66,10 +66,10 @@ cmake_install.cmake
 build/
 
 # generated validation files
-/patterns/validate/rle/*
-/patterns/validate/pgm/*
-/patterns/output/*
+/exercise1/patterns/validate/rle/*
+/exercise1/patterns/validate/pgm/*
+/exercise1/patterns/output/*
 
 # except initial reference patterns & validation scripts
-!/patterns/validate/rle/*_00000.rle
-!/patterns/*.py
+!/exercise1/patterns/validate/rle/*_00000.rle
+!/exercise1/patterns/validate/*.py
