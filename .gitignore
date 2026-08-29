@@ -1,34 +1,34 @@
-# Prerequisites
+# prerequisites
 *.d
 
-# Object files
+# object files
 *.o
 *.ko
 *.obj
 *.elf
 
-# Linker output
+# linker output
 *.ilk
 *.map
 *.exp
 
-# Precompiled Headers
+# precompiled Headers
 *.gch
 *.pch
 
-# Libraries
+# libraries
 *.lib
 *.a
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
+# shared objects (inc. Windows DLLs)
 *.dll
 *.so
 *.so.*
 *.dylib
 
-# Executables
+# executables
 *.exe
 *.out
 *.app
@@ -36,13 +36,13 @@
 *.x86_64
 *.hex
 
-# Debug files
+# debug files
 *.dSYM/
 *.su
 *.idb
 *.pdb
 
-# Kernel Module Compile Results
+# kernel Module Compile Results
 *.mod*
 *.cmd
 .tmp_versions/
@@ -51,7 +51,7 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# CLion / JetBrains project files
+# CLion project files
 .idea/
 
 # CMake build directories
@@ -62,5 +62,14 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 
-# Build directories
+# build directories
 build/
+
+# generated validation files
+/patterns/validate/rle/*
+/patterns/validate/pgm/*
+/patterns/output/*
+
+# except initial reference patterns & validation scripts
+!/patterns/validate/rle/*_00000.rle
+!/patterns/*.py
