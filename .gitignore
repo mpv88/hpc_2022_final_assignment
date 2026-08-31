@@ -73,3 +73,9 @@ build/
 # except initial reference patterns & validation scripts
 !/exercise1/patterns/validate/rle/*_00000.rle
 !/exercise1/patterns/validate/*.py
+
+# generated doxygen files
+/exercise1/doxygen
+
+# test pgm images
+/tests/images/*/

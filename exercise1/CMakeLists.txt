@@ -11,19 +11,36 @@ find_package(MPI REQUIRED)
 
 add_executable(gol
         src/main.c
+        src/pgm.c
+        include/pgm.h
 )
 
+add_executable(test_pgm
+        tests/test_pgm.c
+        src/pgm.c
+        include/pgm.h
+)
+
+target_include_directories(gol PRIVATE include)
+target_include_directories(test_pgm PRIVATE include)
+
 target_compile_options(gol PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
+        -Wall -Wextra -Wpedantic
+)
+
+target_compile_options(test_pgm PRIVATE
+        -Wall -Wextra -Wpedantic
+)
+
+target_compile_definitions(test_pgm PRIVATE
+        _POSIX_C_SOURCE=200809L
 )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options(gol PRIVATE
-            -O3
-            -march=native
+            -O3 -march=native
     )
 endif()
 
-target_link_libraries(gol PRIVATE OpenMP::OpenMP_C)
+target_link_libraries(gol PRIVATE OpenMP::OpenMP_C MPI::MPI_C)
+target_link_libraries(test_pgm PRIVATE MPI::MPI_C)
