@@ -1,6 +1,6 @@
 /// \file pgm.h
 /// \author mpv
-/// \brief header declaring functions to read and write raw 8-bit grayscale PGM files..
+/// \brief header declaring functions to read and write raw 8-bit grayscale PGM files.
 
 #ifndef PGM_H
 #define PGM_H

@@ -13,6 +13,8 @@ add_executable(gol
         src/main.c
         src/pgm.c
         include/pgm.h
+        src/grid.c
+        include/grid.h
 )
 
 add_executable(test_pgm
@@ -44,3 +46,4 @@ endif()
 
 target_link_libraries(gol PRIVATE OpenMP::OpenMP_C MPI::MPI_C)
 target_link_libraries(test_pgm PRIVATE MPI::MPI_C)
+add_executable(test_grid tests/test_grid.c)

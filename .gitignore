@@ -78,4 +78,4 @@ build/
 /exercise1/doxygen
 
 # test pgm images
-/tests/images/*/
+/exercise1/tests/images/*
