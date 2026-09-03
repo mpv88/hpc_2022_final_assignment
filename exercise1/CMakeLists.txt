@@ -10,11 +10,14 @@ find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED)
 
 add_executable(gol
-        src/main.c
+        src/main_serial.c
         src/pgm.c
         include/pgm.h
         src/grid.c
         include/grid.h
+        src/args.c
+        include/args.h
+        src/main_parallel.c
 )
 
 add_executable(test_pgm

@@ -1,0 +1,79 @@
+#include "args.h"
+#include "grid.h"
+#include "pgm.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+/// calculates the elapsed time in seconds between two timestamps
+static double elapsed_time(struct timespec start, struct timespec end)
+{
+    return (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec) / 1e9;
+}
+
+int main(int argc, char **argv)
+{
+    arguments_t args;
+    uint8_t *grid = NULL;
+    struct timespec start, end;
+    double initialization_time = 0.0;
+    double read_time = 0.0;
+    double write_time = 0.0;
+    double evolution_time = 0.0;
+
+    if (parse_arguments(argc, argv, &args) != 0) return 1;
+
+    if (args.action == INIT) {
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        if (grid_initialize(&grid, args.width, args.height, 1) != 0) {
+            free_arguments(&args);
+            return 1;
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        initialization_time = elapsed_time(start, end);
+
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        if (pgm_write(args.filename, grid, args.width, args.height) != 0) {
+            free(grid);
+            free_arguments(&args);
+            return 1;
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        write_time = elapsed_time(start, end);
+
+        printf("initialization_time=%.6f write_time=%.6f\n", initialization_time, write_time);
+
+        free(grid);
+    } else if (args.action == RUN) {
+        int width;
+        int height;
+
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        if (pgm_read(args.filename, &grid, &width, &height) != 0) {
+            free_arguments(&args);
+            return 1;
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        read_time = elapsed_time(start, end);
+
+        /* TODO:
+         1 evolve grid for args.steps steps using args.evolution
+         2 measure the evolution time
+         3 write snapshots according to args.dump_frequency
+         */
+
+        printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
+
+        free(grid);
+    }
+
+    free_arguments(&args);
+    return 0;
+}

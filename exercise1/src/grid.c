@@ -52,7 +52,7 @@ int grid_initialize_mpi(uint8_t **data, int width, int height, int *local_rows, 
         int thread_id = omp_get_thread_num();
         uint32_t state = seed + (uint32_t)rank * 1000003u + (uint32_t)thread_id + 1u;
 
-#pragma omp for
+#pragma omp for schedule(static)
         for (size_t i = 0; i < local_size; i++)
             (*data)[i] = (rng_next(&state) % 100 < ALIVE_PROBABILITY) ? 1 : 0;
     }
