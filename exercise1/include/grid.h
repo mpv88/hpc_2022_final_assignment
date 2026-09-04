@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#define INITIALIZATION_SEED 1
+
 /// \brief Initializes a playground serially with random live and dead cells.
 /// \param data pointer to the grid data to allocate and initialize.
 /// \param width playground width in pixels.

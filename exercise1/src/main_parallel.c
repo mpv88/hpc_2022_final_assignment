@@ -38,26 +38,40 @@ int main(int argc, char **argv)
         width = args.width;
         height = args.height;
 
-        start = MPI_Wtime();
+        char *filename = build_snapshot_filename(args.pattern_name, 0);
 
-        if (grid_initialize_mpi(&grid, width, height, &local_rows, rank, size, 1) != 0) {
+        if (filename == NULL) {
             free_arguments(&args);
             MPI_Finalize();
             return 1;
         }
 
+        MPI_Barrier(MPI_COMM_WORLD);
+        start = MPI_Wtime();
+
+        if (grid_initialize_mpi(&grid, width, height, &local_rows, rank, size, INITIALIZATION_SEED) != 0) {
+            free(filename);
+            free_arguments(&args);
+            MPI_Finalize();
+            return 1;
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
         end = MPI_Wtime();
         initialization_time = elapsed_time(start, end);
 
+        MPI_Barrier(MPI_COMM_WORLD);
         start = MPI_Wtime();
 
-        if (pgm_write_mpi(args.filename, grid, width, local_rows, height, rank, size) != 0) {
+        if (pgm_write_mpi(filename, grid, width, local_rows, height, rank, size) != 0) {
             free(grid);
+            free(filename);
             free_arguments(&args);
             MPI_Finalize();
             return 1;
         }
 
+        MPI_Barrier(MPI_COMM_WORLD);
         end = MPI_Wtime();
         write_time = elapsed_time(start, end);
 
@@ -65,17 +79,34 @@ int main(int argc, char **argv)
             printf("initialization_time=%.6f write_time=%.6f\n", initialization_time, write_time);
 
         free(grid);
+        free(filename);
     } else if (args.action == RUN) {
-        start = MPI_Wtime();
+        int width;
+        int height;
+        char *filename = build_snapshot_filename(args.pattern_name, 0);
 
-        if (pgm_read_mpi(args.filename, &grid, &width, &local_rows, &height, rank, size) != 0) {
+        if (filename == NULL) {
             free_arguments(&args);
             MPI_Finalize();
             return 1;
         }
 
+        MPI_Barrier(MPI_COMM_WORLD);
+        start = MPI_Wtime();
+
+        if (pgm_read_mpi(filename, &grid, &width, &local_rows, &height, rank, size) != 0) {
+            free(filename);
+            free_arguments(&args);
+            MPI_Finalize();
+            return 1;
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
         end = MPI_Wtime();
         read_time = elapsed_time(start, end);
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        start = MPI_Wtime();
 
         /* TODO:
          * evolve the local grid for args.steps steps using args.evolution
@@ -84,10 +115,15 @@ int main(int argc, char **argv)
          * write snapshots according to args.dump_frequency
          */
 
+        MPI_Barrier(MPI_COMM_WORLD);
+        end = MPI_Wtime();
+        evolution_time = elapsed_time(start, end);
+
         if (rank == 0)
             printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
 
         free(grid);
+        free(filename);
     }
 
     free_arguments(&args);

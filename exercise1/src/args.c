@@ -22,6 +22,8 @@ ARGUMENT        MEANING
 #define DEFAULT_PLAYGROUND_SIZE 100
 #define DEFAULT_NUMBER_OF_STEPS 10000
 #define DEFAULT_DUMP_FREQUENCY 1
+#define OUTPUT_DIRECTORY "patterns/output/"
+#define SNAPSHOT_SUFFIX "_"
 
 /// converts a string to an integer and checks for invalid input.
 static int parse_integer(const char *value, int *result)
@@ -35,12 +37,28 @@ static int parse_integer(const char *value, int *result)
     return 0;
 }
 
+/// builds the filename of a pattern snapshot.
+char *build_snapshot_filename(const char *pattern_name, int step)
+{
+    size_t length = strlen(OUTPUT_DIRECTORY) + strlen(pattern_name) +
+                    strlen(SNAPSHOT_SUFFIX) + 5 + strlen(".pgm") + 1;
+    char *filename = malloc(length);
+
+    if (filename == NULL)
+        return NULL;
+
+    snprintf(filename, length, "%s%s%s%05d.pgm",
+             OUTPUT_DIRECTORY, pattern_name, SNAPSHOT_SUFFIX, step);
+
+    return filename;
+}
+
 /// prints an argument error, frees allocated memory and returns failure.
 static int argument_error(arguments_t *args, const char *message)
 {
     fprintf(stderr, "error: %s\n", message);
-    free(args->filename);
-    args->filename = NULL;
+    free(args->pattern_name);
+    args->pattern_name = NULL;
     return -1;
 }
 
@@ -55,7 +73,7 @@ int parse_arguments(int argc, char **argv, arguments_t *args)
         .evolution = ORDERED,
         .steps = DEFAULT_NUMBER_OF_STEPS,
         .dump_frequency = DEFAULT_DUMP_FREQUENCY,
-        .filename = NULL
+        .pattern_name = NULL
     };
 
     optind = 1; // global variable for getopt() to keep track of which argv is currently parsed
@@ -93,10 +111,10 @@ int parse_arguments(int argc, char **argv, arguments_t *args)
                 return argument_error(args, "evolution must be 0, 1, 2 or 3");
             break;
         case 'f':
-            free(args->filename);
-            args->filename = malloc(strlen(optarg) + 1);
-            if (args->filename == NULL) return argument_error(args, "memory allocation failed");
-            strcpy(args->filename, optarg);
+            free(args->pattern_name);
+            args->pattern_name = malloc(strlen(optarg) + 1);
+            if (args->pattern_name == NULL) return argument_error(args, "memory allocation failed");
+            strcpy(args->pattern_name, optarg);
             break;
         case 'n':
             if (parse_integer(optarg, &args->steps) != 0 || args->steps < 0)
@@ -114,7 +132,7 @@ int parse_arguments(int argc, char **argv, arguments_t *args)
     if (optind < argc) return argument_error(args, "unexpected argument");
     if (args->action == 0) return argument_error(args, "specify either -i or -r");
     if (width_set != height_set) return argument_error(args, "-w and -h must be specified together");
-    if (args->filename == NULL) return argument_error(args, "filename is required (-f)");
+    if (args->pattern_name == NULL) return argument_error(args, "pattern name is required (-f)");
     if (args->action == RUN && (size_set || width_set || height_set))
         return argument_error(args, "-k, -w and -h are only valid with -i");
 
@@ -123,6 +141,6 @@ int parse_arguments(int argc, char **argv, arguments_t *args)
 
 void free_arguments(arguments_t *args)
 {
-    free(args->filename);
-    args->filename = NULL;
+    free(args->pattern_name);
+    args->pattern_name = NULL;
 }

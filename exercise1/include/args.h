@@ -27,7 +27,7 @@ typedef struct {
     int evolution;
     int steps;
     int dump_frequency;
-    char *filename;
+    char *pattern_name;
 } arguments_t;
 
 /// \brief Parses and validates the command-line arguments.
@@ -36,6 +36,12 @@ typedef struct {
 /// \param args structure in which the parsed arguments are stored.
 /// \return 0 on success, -1 if the arguments are invalid.
 int parse_arguments(int argc, char **argv, arguments_t *args);
+
+/// \brief Builds the filename of a pattern snapshot.
+/// \param pattern_name name of the pattern.
+/// \param step evolution step of the snapshot.
+/// \return allocated string containing the snapshot filename, or NULL on error.
+char *build_snapshot_filename(const char *pattern_name, int step);
 
 /// \brief Frees memory allocated for command-line arguments.
 /// \param args structure containing the arguments to free.

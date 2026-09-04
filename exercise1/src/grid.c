@@ -44,7 +44,7 @@ int grid_initialize_mpi(uint8_t **data, int width, int height, int *local_rows, 
     if (*data == NULL)
         return -1;
 
-    printf("MPI rank %d/%d: initializing %d rows\n", rank, size, *local_rows);
+    printf("MPI rank %d of %d: initializing %d rows\n", rank, size, *local_rows);
 
     // omp: initialize the local portion using multiple threads
 #pragma omp parallel

@@ -25,9 +25,17 @@ int main(int argc, char **argv)
     if (parse_arguments(argc, argv, &args) != 0) return 1;
 
     if (args.action == INIT) {
+        char *filename = build_snapshot_filename(args.pattern_name, 0);
+
+        if (filename == NULL) {
+            free_arguments(&args);
+            return 1;
+        }
+
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        if (grid_initialize(&grid, args.width, args.height, 1) != 0) {
+        if (grid_initialize(&grid, args.width, args.height, INITIALIZATION_SEED) != 0) {
+            free(filename);
             free_arguments(&args);
             return 1;
         }
@@ -37,8 +45,9 @@ int main(int argc, char **argv)
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        if (pgm_write(args.filename, grid, args.width, args.height) != 0) {
+        if (pgm_write(filename, grid, args.width, args.height) != 0) {
             free(grid);
+            free(filename);
             free_arguments(&args);
             return 1;
         }
@@ -49,13 +58,21 @@ int main(int argc, char **argv)
         printf("initialization_time=%.6f write_time=%.6f\n", initialization_time, write_time);
 
         free(grid);
+        free(filename);
     } else if (args.action == RUN) {
         int width;
         int height;
+        char *filename = build_snapshot_filename(args.pattern_name, 0);
+
+        if (filename == NULL) {
+            free_arguments(&args);
+            return 1;
+        }
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        if (pgm_read(args.filename, &grid, &width, &height) != 0) {
+        if (pgm_read(filename, &grid, &width, &height) != 0) {
+            free(filename);
             free_arguments(&args);
             return 1;
         }
@@ -72,6 +89,7 @@ int main(int argc, char **argv)
         printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
 
         free(grid);
+        free(filename);
     }
 
     free_arguments(&args);
