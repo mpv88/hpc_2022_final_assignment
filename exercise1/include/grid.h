@@ -17,17 +17,18 @@
 /// \return 0 on success, -1 if memory allocation fails.
 int grid_initialize(uint8_t **data, int width, int height, unsigned int seed);
 
-
-/// \brief Initializes the playground using MPI for row decomposition and OpenMP for local initialization.
-/// \param data pointer to the local grid data to allocate and initialize.
-/// \param width playground width in pixels.
-/// \param height playground height in pixels.
-/// \param local_rows pointer to the number of rows assigned to this MPI process.
+/// \brief Allocates and initializes the portion of a grid assigned to an MPI rank.
+/// \param data pointer receiving the address of the first real local row.
+/// \param width width of the global grid in cells.
+/// \param height height of the global grid in cells.
+/// \param local_rows pointer receiving the number of real rows assigned to this rank.
 /// \param rank MPI rank of the current process.
 /// \param size total number of MPI processes.
-/// \param seed seed used to initialize the random number generator.
+/// \param seed initialization seed.
 /// \return 0 on success, -1 if memory allocation fails.
+/// NOTE:
+/// Two additional ghost rows are allocated internally, one before and one after the real local rows.
+/// The returned pointer refers to the first real row.
 int grid_initialize_mpi(uint8_t **data, int width, int height, int *local_rows, int rank, int size, unsigned int seed);
-
 
 #endif

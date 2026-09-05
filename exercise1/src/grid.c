@@ -1,6 +1,7 @@
 #include "grid.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <omp.h>
 
 #define ALIVE_PROBABILITY 50
@@ -39,14 +40,17 @@ int grid_initialize_mpi(uint8_t **data, int width, int height, int *local_rows, 
     *local_rows = base_rows + (rank < remainder);
 
     size_t local_size = (size_t)(*local_rows) * (size_t)width;
+    size_t allocation_size = local_size + 2 * (size_t)width;
 
-    *data = malloc(local_size);
-    if (*data == NULL)
+    uint8_t *allocation = malloc(allocation_size);
+    if (allocation == NULL)
         return -1;
+
+    *data = allocation + width;
 
     printf("MPI rank %d of %d: initializing %d rows\n", rank, size, *local_rows);
 
-    // omp: initialize the local portion using multiple threads
+    // omp: initialize only the real local rows
 #pragma omp parallel
     {
         int thread_id = omp_get_thread_num();
@@ -55,6 +59,17 @@ int grid_initialize_mpi(uint8_t **data, int width, int height, int *local_rows, 
 #pragma omp for schedule(static)
         for (size_t i = 0; i < local_size; i++)
             (*data)[i] = (rng_next(&state) % 100 < ALIVE_PROBABILITY) ? 1 : 0;
+    }
+
+    // for one MPI rank, initialize the ghost rows using periodic boundaries
+    if (size == 1) {
+        memcpy(*data - width,
+               *data + (size_t)(*local_rows - 1) * width,
+               (size_t)width);
+
+        memcpy(*data + (size_t)(*local_rows) * width,
+               *data,
+               (size_t)width);
     }
 
     return 0;

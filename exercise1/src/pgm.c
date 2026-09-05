@@ -149,22 +149,26 @@ int pgm_read_mpi(const char *filename, uint8_t **data, int *width, int *local_ro
     MPI_Offset offset = header_size + (MPI_Offset)start_row * (*width);
 
     size_t image_size = (size_t)(*local_rows) * (size_t)(*width);
+    size_t allocation_size = image_size + 2 * (size_t)(*width); // 2 ghost rows
+
     uint8_t *pgm_data = malloc(image_size);
 
     if (pgm_data == NULL)
         return -3;
 
-    *data = malloc(image_size);
+    uint8_t *allocation = malloc(allocation_size);
 
-    if (*data == NULL) {
+    if (allocation == NULL) {
         free(pgm_data);
         return -3;
     }
 
+    *data = allocation + *width;
+
     if (MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &file) != MPI_SUCCESS) {
-        free(pgm_data);
-        free(*data);
+        free(allocation);
         *data = NULL;
+        free(pgm_data);
         return -4;
     }
 
@@ -173,9 +177,9 @@ int pgm_read_mpi(const char *filename, uint8_t **data, int *width, int *local_ro
     MPI_File_close(&file);
 
     if (read_result != MPI_SUCCESS) {
-        free(pgm_data);
-        free(*data);
+        free(allocation);
         *data = NULL;
+        free(pgm_data);
         return -5;
     }
 
@@ -183,6 +187,17 @@ int pgm_read_mpi(const char *filename, uint8_t **data, int *width, int *local_ro
         (*data)[i] = pgm_data[i] == PGM_MAXVAL ? ALIVE : DEAD;
 
     free(pgm_data);
+
+    if (size == 1) {
+        memcpy(*data - *width,
+               *data + (size_t)(*local_rows - 1) * *width,
+               (size_t)*width);
+
+        memcpy(*data + (size_t)*local_rows * *width,
+               *data,
+               (size_t)*width);
+    }
+
     return 0;
 }
 

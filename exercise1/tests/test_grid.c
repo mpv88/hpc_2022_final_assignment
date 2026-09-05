@@ -1,4 +1,4 @@
-#include "../include/grid.h"
+#include "grid.h"
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 
     if (local_rows != expected_rows) {
         printf("FAIL: MPI rank %d received %d rows, expected %d\n", rank, local_rows, expected_rows);
-        free(data);
+        free(data - width);
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
     for (size_t i = 0; i < local_size; i++) {
         if (data[i] != 0 && data[i] != 1) {
             printf("FAIL: invalid cell value on MPI rank %d at index %zu\n", rank, i);
-            free(data);
+            free(data - width);
             MPI_Abort(MPI_COMM_WORLD, 1);
         }
     }
@@ -82,7 +82,32 @@ int main(int argc, char **argv)
 
     printf("MPI rank %d: %d local rows, cell values OK\n", rank, local_rows);
 
+    // for one MPI rank, the ghost rows must implement periodic boundary conditions directly after initialization
+    if (size == 1) {
+        uint8_t *top_ghost = data - width;
+        uint8_t *bottom_ghost = data + (size_t)local_rows * width;
+        uint8_t *first_row = data;
+        uint8_t *last_row = data + (size_t)(local_rows - 1) * width;
+
+        if (memcmp(top_ghost, last_row, (size_t)width) != 0) {
+            printf("FAIL: top ghost row does not match last real row\n");
+            free(data - width);
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+
+        if (memcmp(bottom_ghost, first_row, (size_t)width) != 0) {
+            printf("FAIL: bottom ghost row does not match first real row\n");
+            free(data - width);
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+
+        if (rank == 0)
+            printf("single-rank ghost rows: OK\n");
+    }
+
     MPI_Barrier(MPI_COMM_WORLD);
+
+    free(data - width);
 
     if (rank == 0)
         printf("\nALL GRID TESTS PASSED\n");

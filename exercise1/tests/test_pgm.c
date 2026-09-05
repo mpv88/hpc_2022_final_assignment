@@ -102,7 +102,7 @@ int main(void)
         printf("written: %s\n", mpi_output);
     }
 
-    free(local_data);
+    free(local_data - width);
     MPI_Finalize();
     return 0;
 }

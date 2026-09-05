@@ -1,15 +1,28 @@
 #include "args.h"
 #include "grid.h"
 #include "pgm.h"
+#include "evolution_ordered.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
-/// calculates the elapsed time in seconds between two timestamps
+// calculates the elapsed time in seconds between two timestamps
 static double elapsed_time(struct timespec start, struct timespec end)
 {
     return (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec) / 1e9;
+}
+
+static int write_snapshot(const char *pattern_name, const uint8_t *grid, int width, int height, int step)
+{
+    char *filename = build_snapshot_filename(pattern_name, step);
+
+    if (filename == NULL)
+        return -1;
+
+    int result = pgm_write(filename, grid, width, height);
+    free(filename);
+    return result;
 }
 
 int main(int argc, char **argv)
@@ -31,7 +44,7 @@ int main(int argc, char **argv)
             free_arguments(&args);
             return 1;
         }
-
+        // init grid
         clock_gettime(CLOCK_MONOTONIC, &start);
 
         if (grid_initialize(&grid, args.width, args.height, INITIALIZATION_SEED) != 0) {
@@ -43,6 +56,7 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_MONOTONIC, &end);
         initialization_time = elapsed_time(start, end);
 
+        // write pgm
         clock_gettime(CLOCK_MONOTONIC, &start);
 
         if (pgm_write(filename, grid, args.width, args.height) != 0) {
@@ -68,7 +82,7 @@ int main(int argc, char **argv)
             free_arguments(&args);
             return 1;
         }
-
+        // read pgm
         clock_gettime(CLOCK_MONOTONIC, &start);
 
         if (pgm_read(filename, &grid, &width, &height) != 0) {
@@ -80,14 +94,43 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_MONOTONIC, &end);
         read_time = elapsed_time(start, end);
 
-        /* TODO:
-         1 evolve grid for args.steps steps using args.evolution
-         2 measure the evolution time
-         3 write snapshots according to args.dump_frequency
-         */
+        // evolution
+        for (int step = 1; step <= args.steps; step++) {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+
+            if (args.evolution == ORDERED)
+                evolve_ordered_serial(grid, width, height);
+            else {
+                fprintf(stderr, "evolution type not implemented yet\n");
+                free(grid);
+                free(filename);
+                free_arguments(&args);
+                return 1;
+            }
+
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            evolution_time += elapsed_time(start, end);
+
+            if (args.dump_frequency > 0 && step % args.dump_frequency == 0) {
+                if (write_snapshot(args.pattern_name, grid, width, height, step) != 0) {
+                    free(grid);
+                    free(filename);
+                    free_arguments(&args);
+                    return 1;
+                }
+            }
+        }
+
+        if (args.dump_frequency == 0) {
+            if (write_snapshot(args.pattern_name, grid, width, height, args.steps) != 0) {
+                free(grid);
+                free(filename);
+                free_arguments(&args);
+                return 1;
+            }
+        }
 
         printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
-
         free(grid);
         free(filename);
     }

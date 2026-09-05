@@ -1,15 +1,28 @@
 #include "args.h"
 #include "grid.h"
 #include "pgm.h"
+#include "evolution_ordered.h"
 
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-/// calculates the elapsed time in seconds between two timestamps
+// calculates the elapsed time in seconds between two timestamps
 static double elapsed_time(double start, double end)
 {
     return end - start;
+}
+
+static int write_snapshot(const char *pattern_name, const uint8_t *grid, int width, int local_rows, int height, int rank, int size, int step)
+{
+    char *filename = build_snapshot_filename(pattern_name, step);
+
+    if (filename == NULL)
+        return -1;
+
+    int result = pgm_write_mpi(filename, grid, width, local_rows, height, rank, size);
+    free(filename);
+    return result;
 }
 
 int main(int argc, char **argv)
@@ -64,7 +77,7 @@ int main(int argc, char **argv)
         start = MPI_Wtime();
 
         if (pgm_write_mpi(filename, grid, width, local_rows, height, rank, size) != 0) {
-            free(grid);
+            free(grid - width);
             free(filename);
             free_arguments(&args);
             MPI_Finalize();
@@ -78,11 +91,9 @@ int main(int argc, char **argv)
         if (rank == 0)
             printf("initialization_time=%.6f write_time=%.6f\n", initialization_time, write_time);
 
-        free(grid);
+        free(grid - width);
         free(filename);
     } else if (args.action == RUN) {
-        int width;
-        int height;
         char *filename = build_snapshot_filename(args.pattern_name, 0);
 
         if (filename == NULL) {
@@ -105,24 +116,51 @@ int main(int argc, char **argv)
         end = MPI_Wtime();
         read_time = elapsed_time(start, end);
 
-        MPI_Barrier(MPI_COMM_WORLD);
-        start = MPI_Wtime();
+        for (int step = 1; step <= args.steps; step++) {
+            MPI_Barrier(MPI_COMM_WORLD);
+            start = MPI_Wtime();
 
-        /* TODO:
-         * evolve the local grid for args.steps steps using args.evolution
-         * exchange boundary rows between MPI processes when required
-         * measure the evolution time
-         * write snapshots according to args.dump_frequency
-         */
+            if (args.evolution == ORDERED)
+                evolve_ordered_parallel(grid, width, local_rows, rank, size, MPI_COMM_WORLD);
+            else {
+                if (rank == 0)
+                    fprintf(stderr, "evolution type not implemented yet\n");
+                free(grid - width);
+                free(filename);
+                free_arguments(&args);
+                MPI_Finalize();
+                return 1;
+            }
 
-        MPI_Barrier(MPI_COMM_WORLD);
-        end = MPI_Wtime();
-        evolution_time = elapsed_time(start, end);
+            MPI_Barrier(MPI_COMM_WORLD);
+            end = MPI_Wtime();
+            evolution_time += elapsed_time(start, end);
+
+            if (args.dump_frequency > 0 && step % args.dump_frequency == 0) {
+                if (write_snapshot(args.pattern_name, grid, width, local_rows, height, rank, size, step) != 0) {
+                    free(grid - width);
+                    free(filename);
+                    free_arguments(&args);
+                    MPI_Finalize();
+                    return 1;
+                }
+            }
+        }
+
+        if (args.dump_frequency == 0) {
+            if (write_snapshot(args.pattern_name, grid, width, local_rows, height, rank, size, args.steps) != 0) {
+                free(grid - width);
+                free(filename);
+                free_arguments(&args);
+                MPI_Finalize();
+                return 1;
+            }
+        }
 
         if (rank == 0)
             printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
 
-        free(grid);
+        free(grid - width);
         free(filename);
     }
 

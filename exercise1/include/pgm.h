@@ -15,7 +15,6 @@
 /// \return 0 on success, non-zero on error.
 int pgm_read(const char *filename, uint8_t **data, int *width, int *height);
 
-
 /// \brief  Writes a PGM image to a file.
 /// \param filename name of the PGM file to create.
 /// \param data  image data to write.
@@ -23,7 +22,6 @@ int pgm_read(const char *filename, uint8_t **data, int *width, int *height);
 /// \param height image height in pixels.
 /// \return 0 on success, non-zero on error.
 int pgm_write(const char *filename, const uint8_t *data, int width, int height);
-
 
 /// \brief Reads a PGM image in parallel using MPI-IO and distributes its rows among MPI processes.
 /// \param filename name of the PGM file to read.
@@ -36,7 +34,6 @@ int pgm_write(const char *filename, const uint8_t *data, int width, int height);
 /// \return 0 on success, -1 if the file cannot be opened, -2 if the PGM header is invalid, -3 if memory allocation fails.
 int pgm_read_mpi(const char *filename, uint8_t **data, int *width, int *local_rows, int *height, int rank, int size);
 
-
 /// \brief Writes a PGM image in parallel using MPI-IO, with each MPI process writing its assigned rows.
 /// \param filename name of the PGM file to write.
 /// \param data pointer to the local image data to write.
@@ -47,6 +44,5 @@ int pgm_read_mpi(const char *filename, uint8_t **data, int *width, int *local_ro
 /// \param size total number of MPI processes.
 /// \return 0 on success, -1 if the file cannot be opened, -2 if MPI file opening fails, -3 if writing fails.
 int pgm_write_mpi(const char *filename, const uint8_t *data, int width, int local_rows, int height, int rank, int size);
-
 
 #endif
