@@ -9,18 +9,23 @@ set(CMAKE_C_EXTENSIONS OFF)
 find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED)
 
+# executable output directory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
+
 add_executable(gol_serial
         src/main_serial.c
         src/args.c
         src/pgm.c
         src/grid.c
         src/evolution_common.c
+        src/evolution_ordered.c
+        src/evolution_static.c
         include/args.h
         include/pgm.h
         include/grid.h
         include/evolution_common.h
-        src/evolution_ordered.c
         include/evolution_ordered.h
+        include/evolution_static.h
 )
 
 add_executable(gol_parallel
@@ -29,12 +34,14 @@ add_executable(gol_parallel
         src/pgm.c
         src/grid.c
         src/evolution_common.c
+        src/evolution_ordered.c
+        src/evolution_static.c
         include/args.h
         include/pgm.h
         include/grid.h
         include/evolution_common.h
-        src/evolution_ordered.c
         include/evolution_ordered.h
+        include/evolution_static.h
 )
 
 add_executable(test_pgm
@@ -68,6 +75,7 @@ target_compile_options(test_grid PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(test_evolution_common PRIVATE -Wall -Wextra -Wpedantic)
 
 target_compile_definitions(gol_serial PRIVATE _POSIX_C_SOURCE=200809L)
+target_compile_definitions(gol_parallel PRIVATE _POSIX_C_SOURCE=200809L)
 target_compile_definitions(test_pgm PRIVATE _POSIX_C_SOURCE=200809L)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")

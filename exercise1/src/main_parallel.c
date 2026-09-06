@@ -2,6 +2,7 @@
 #include "grid.h"
 #include "pgm.h"
 #include "evolution_ordered.h"
+#include "evolution_static.h"
 
 #include <mpi.h>
 #include <stdio.h>
@@ -29,6 +30,7 @@ int main(int argc, char **argv)
 {
     arguments_t args;
     uint8_t *grid = NULL;
+    uint8_t *next_grid = NULL;
     int rank, size;
     int width, height, local_rows;
     double start, end;
@@ -116,15 +118,38 @@ int main(int argc, char **argv)
         end = MPI_Wtime();
         read_time = elapsed_time(start, end);
 
+        if (args.evolution == STATIC) {
+            size_t allocation_size = ((size_t)local_rows + 2) * (size_t)width;
+            uint8_t *allocation = malloc(allocation_size);
+
+            if (allocation == NULL) {
+                free(grid - width);
+                free(filename);
+                free_arguments(&args);
+                MPI_Finalize();
+                return 1;
+            }
+
+            next_grid = allocation + width;
+        }
+
         for (int step = 1; step <= args.steps; step++) {
             MPI_Barrier(MPI_COMM_WORLD);
             start = MPI_Wtime();
 
-            if (args.evolution == ORDERED)
+            if (args.evolution == ORDERED) {
                 evolve_ordered_parallel(grid, width, local_rows, rank, size, MPI_COMM_WORLD);
-            else {
+            } else if (args.evolution == STATIC) {
+                evolve_static_parallel(grid, next_grid, width, local_rows, rank, size, MPI_COMM_WORLD);
+
+                uint8_t *temporary = grid;
+                grid = next_grid;
+                next_grid = temporary;
+            } else {
                 if (rank == 0)
                     fprintf(stderr, "evolution type not implemented yet\n");
+
+                free(next_grid != NULL ? next_grid - width : NULL);
                 free(grid - width);
                 free(filename);
                 free_arguments(&args);
@@ -138,6 +163,7 @@ int main(int argc, char **argv)
 
             if (args.dump_frequency > 0 && step % args.dump_frequency == 0) {
                 if (write_snapshot(args.pattern_name, grid, width, local_rows, height, rank, size, step) != 0) {
+                    free(next_grid != NULL ? next_grid - width : NULL);
                     free(grid - width);
                     free(filename);
                     free_arguments(&args);
@@ -149,6 +175,7 @@ int main(int argc, char **argv)
 
         if (args.dump_frequency == 0) {
             if (write_snapshot(args.pattern_name, grid, width, local_rows, height, rank, size, args.steps) != 0) {
+                free(next_grid != NULL ? next_grid - width : NULL);
                 free(grid - width);
                 free(filename);
                 free_arguments(&args);
@@ -160,6 +187,7 @@ int main(int argc, char **argv)
         if (rank == 0)
             printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
 
+        free(next_grid != NULL ? next_grid - width : NULL);
         free(grid - width);
         free(filename);
     }

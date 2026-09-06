@@ -2,6 +2,7 @@
 #include "grid.h"
 #include "pgm.h"
 #include "evolution_ordered.h"
+#include "evolution_static.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +30,7 @@ int main(int argc, char **argv)
 {
     arguments_t args;
     uint8_t *grid = NULL;
+    uint8_t *next_grid = NULL;
     struct timespec start, end;
     double initialization_time = 0.0;
     double read_time = 0.0;
@@ -44,6 +46,7 @@ int main(int argc, char **argv)
             free_arguments(&args);
             return 1;
         }
+
         // init grid
         clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -82,6 +85,7 @@ int main(int argc, char **argv)
             free_arguments(&args);
             return 1;
         }
+
         // read pgm
         clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -94,14 +98,32 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_MONOTONIC, &end);
         read_time = elapsed_time(start, end);
 
+        if (args.evolution == STATIC) {
+            next_grid = malloc((size_t)width * (size_t)height);
+
+            if (next_grid == NULL) {
+                free(grid);
+                free(filename);
+                free_arguments(&args);
+                return 1;
+            }
+        }
+
         // evolution
         for (int step = 1; step <= args.steps; step++) {
             clock_gettime(CLOCK_MONOTONIC, &start);
 
-            if (args.evolution == ORDERED)
+            if (args.evolution == ORDERED) {
                 evolve_ordered_serial(grid, width, height);
-            else {
+            } else if (args.evolution == STATIC) {
+                evolve_static_serial(grid, next_grid, width, height);
+                // pointer swapping
+                uint8_t *temporary = grid;
+                grid = next_grid;
+                next_grid = temporary;
+            } else {
                 fprintf(stderr, "evolution type not implemented yet\n");
+                free(next_grid);
                 free(grid);
                 free(filename);
                 free_arguments(&args);
@@ -113,6 +135,7 @@ int main(int argc, char **argv)
 
             if (args.dump_frequency > 0 && step % args.dump_frequency == 0) {
                 if (write_snapshot(args.pattern_name, grid, width, height, step) != 0) {
+                    free(next_grid);
                     free(grid);
                     free(filename);
                     free_arguments(&args);
@@ -123,6 +146,7 @@ int main(int argc, char **argv)
 
         if (args.dump_frequency == 0) {
             if (write_snapshot(args.pattern_name, grid, width, height, args.steps) != 0) {
+                free(next_grid);
                 free(grid);
                 free(filename);
                 free_arguments(&args);
@@ -131,6 +155,8 @@ int main(int argc, char **argv)
         }
 
         printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
+
+        free(next_grid);
         free(grid);
         free(filename);
     }

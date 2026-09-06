@@ -11,8 +11,8 @@ GRID_TEST = build/test_grid
 EVOLUTION_COMMON_TEST = build/test_evolution_common
 
 # source files
-GOL_SERIAL_SRC = src/main_serial.c src/args.c src/pgm.c src/grid.c src/evolution_common.c src/evolution_ordered.c
-GOL_PARALLEL_SRC = src/main_parallel.c src/args.c src/pgm.c src/grid.c src/evolution_common.c src/evolution_ordered.c
+GOL_SERIAL_SRC = src/main_serial.c src/args.c src/pgm.c src/grid.c src/evolution_common.c src/evolution_ordered.c src/evolution_static.c
+GOL_PARALLEL_SRC = src/main_parallel.c src/args.c src/pgm.c src/grid.c src/evolution_common.c src/evolution_ordered.c src/evolution_static.c
 PGM_TEST_SRC = tests/test_pgm.c src/pgm.c
 GRID_TEST_SRC = tests/test_grid.c src/grid.c
 EVOLUTION_COMMON_TEST_SRC = tests/test_evolution_common.c src/evolution_common.c
@@ -29,13 +29,13 @@ test_grid: $(GRID_TEST)
 test_evolution_common: $(EVOLUTION_COMMON_TEST)
 
 # main executable targets
-$(GOL_SERIAL): $(GOL_SERIAL_SRC) include/args.h include/pgm.h include/grid.h include/evolution_common.h include/evolution_ordered.h
+$(GOL_SERIAL): $(GOL_SERIAL_SRC) include/args.h include/pgm.h include/grid.h include/evolution_common.h include/evolution_ordered.h include/evolution_static.h
 	mkdir -p build
 	$(CC) $(CFLAGS) $(CPPFLAGS) -D_POSIX_C_SOURCE=200809L $(GOL_SERIAL_SRC) -o $(GOL_SERIAL)
 
-$(GOL_PARALLEL): $(GOL_PARALLEL_SRC) include/args.h include/pgm.h include/grid.h include/evolution_common.h include/evolution_ordered.h
+$(GOL_PARALLEL): $(GOL_PARALLEL_SRC) include/args.h include/pgm.h include/grid.h include/evolution_common.h include/evolution_ordered.h include/evolution_static.h
 	mkdir -p build
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(GOL_PARALLEL_SRC) -o $(GOL_PARALLEL)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -D_POSIX_C_SOURCE=200809L $(GOL_PARALLEL_SRC) -o $(GOL_PARALLEL)
 
 # test targets
 $(PGM_TEST): $(PGM_TEST_SRC) include/pgm.h

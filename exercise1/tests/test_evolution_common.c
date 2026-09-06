@@ -36,19 +36,19 @@ static int test_parallel_neighbor_count(void)
     // bottom ghost row
     grid[12] = 1;
     // top real cell
-    if (count_live_neighbors_parallel(data, 0, 1, width, local_rows) != 1) {
+    if (count_live_neighbors_parallel(data, 0, 1, width) != 1) {
         printf("top ghost row test failed\n");
         return 1;
     }
     // bottom real cell
-    if (count_live_neighbors_parallel(data, 2, 1, width, local_rows) != 1) {
+    if (count_live_neighbors_parallel(data, 2, 1, width) != 1) {
         printf("bottom ghost row test failed\n");
         return 1;
     }
     // horizontal periodicity
     data[1] = 1;
 
-    if (count_live_neighbors_parallel(data, 1, 0, width, local_rows) != 1) {
+    if (count_live_neighbors_parallel(data, 1, 0, width) != 1) {
         printf("horizontal periodicity test failed\n");
         return 1;
     }
