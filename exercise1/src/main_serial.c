@@ -3,6 +3,7 @@
 #include "pgm.h"
 #include "evolution_ordered.h"
 #include "evolution_static.h"
+#include "evolution_wave.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,6 +80,8 @@ int main(int argc, char **argv)
     } else if (args.action == RUN) {
         int width;
         int height;
+        int start_row = 0;
+        int start_column = 0;
         char *filename = build_snapshot_filename(args.pattern_name, 0);
 
         if (filename == NULL) {
@@ -98,7 +101,7 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_MONOTONIC, &end);
         read_time = elapsed_time(start, end);
 
-        if (args.evolution == STATIC) {
+        if (args.evolution == STATIC || args.evolution == WAVE) {
             next_grid = malloc((size_t)width * (size_t)height);
 
             if (next_grid == NULL) {
@@ -109,6 +112,13 @@ int main(int argc, char **argv)
             }
         }
 
+        if (args.evolution == WAVE) {
+            // choose the wave starting point once for the whole simulation
+            srand(INITIALIZATION_SEED);
+            start_row = rand() % height;
+            start_column = rand() % width;
+        }
+
         // evolution
         for (int step = 1; step <= args.steps; step++) {
             clock_gettime(CLOCK_MONOTONIC, &start);
@@ -117,6 +127,14 @@ int main(int argc, char **argv)
                 evolve_ordered_serial(grid, width, height);
             } else if (args.evolution == STATIC) {
                 evolve_static_serial(grid, next_grid, width, height);
+
+                // pointer swapping
+                uint8_t *temporary = grid;
+                grid = next_grid;
+                next_grid = temporary;
+            } else if (args.evolution == WAVE) {
+                evolve_wave_serial(grid, next_grid, width, height, start_row, start_column);
+
                 // pointer swapping
                 uint8_t *temporary = grid;
                 grid = next_grid;

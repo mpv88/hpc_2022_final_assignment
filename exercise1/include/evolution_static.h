@@ -1,4 +1,4 @@
-/// \file evolution_ordered.h
+/// \file evolution_static.h
 /// \author mpv
 /// \brief functions for the static GoL evolution pattern.
 

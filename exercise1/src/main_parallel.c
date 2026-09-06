@@ -3,6 +3,7 @@
 #include "pgm.h"
 #include "evolution_ordered.h"
 #include "evolution_static.h"
+#include "evolution_wave.h"
 
 #include <mpi.h>
 #include <stdio.h>
@@ -33,6 +34,8 @@ int main(int argc, char **argv)
     uint8_t *next_grid = NULL;
     int rank, size;
     int width, height, local_rows;
+    int start_row = 0;
+    int start_column = 0;
     double start, end;
     double initialization_time = 0.0;
     double read_time = 0.0;
@@ -118,7 +121,7 @@ int main(int argc, char **argv)
         end = MPI_Wtime();
         read_time = elapsed_time(start, end);
 
-        if (args.evolution == STATIC) {
+        if (args.evolution == STATIC || args.evolution == WAVE) {
             size_t allocation_size = ((size_t)local_rows + 2) * (size_t)width;
             uint8_t *allocation = malloc(allocation_size);
 
@@ -133,6 +136,18 @@ int main(int argc, char **argv)
             next_grid = allocation + width;
         }
 
+        if (args.evolution == WAVE) {
+            // choose the wave starting point once for the whole simulation
+            if (rank == 0) {
+                srand(INITIALIZATION_SEED);
+                start_row = rand() % height;
+                start_column = rand() % width;
+            }
+
+            MPI_Bcast(&start_row, 1, MPI_INT, 0, MPI_COMM_WORLD);
+            MPI_Bcast(&start_column, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        }
+
         for (int step = 1; step <= args.steps; step++) {
             MPI_Barrier(MPI_COMM_WORLD);
             start = MPI_Wtime();
@@ -141,6 +156,12 @@ int main(int argc, char **argv)
                 evolve_ordered_parallel(grid, width, local_rows, rank, size, MPI_COMM_WORLD);
             } else if (args.evolution == STATIC) {
                 evolve_static_parallel(grid, next_grid, width, local_rows, rank, size, MPI_COMM_WORLD);
+
+                uint8_t *temporary = grid;
+                grid = next_grid;
+                next_grid = temporary;
+            } else if (args.evolution == WAVE) {
+                evolve_wave_parallel(grid, next_grid, width, height, local_rows, rank, size, start_row, start_column, MPI_COMM_WORLD);
 
                 uint8_t *temporary = grid;
                 grid = next_grid;
