@@ -4,6 +4,7 @@
 #include "evolution_ordered.h"
 #include "evolution_static.h"
 #include "evolution_wave.h"
+#include "evolution_wb.h"
 
 #include <mpi.h>
 #include <stdio.h>
@@ -41,6 +42,15 @@ int main(int argc, char **argv)
     double read_time = 0.0;
     double write_time = 0.0;
     double evolution_time = 0.0;
+
+    // request MPI support where only one thread performs MPI calls
+    // MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+    //
+    // if (provided < MPI_THREAD_FUNNELED) {
+    //     fprintf(stderr, "MPI does not provide MPI_THREAD_FUNNELED\n");
+    //     MPI_Finalize();
+    //     return 1;
+    // }
 
     // initialize MPI
     MPI_Init(&argc, &argv);
@@ -121,7 +131,7 @@ int main(int argc, char **argv)
         end = MPI_Wtime();
         read_time = elapsed_time(start, end);
 
-        if (args.evolution == STATIC || args.evolution == WAVE) {
+        if (args.evolution == STATIC || args.evolution == WAVE || args.evolution == WHITE_BLACK) {
             size_t allocation_size = ((size_t)local_rows + 2) * (size_t)width;
             uint8_t *allocation = malloc(allocation_size);
 
@@ -166,6 +176,8 @@ int main(int argc, char **argv)
                 uint8_t *temporary = grid;
                 grid = next_grid;
                 next_grid = temporary;
+            } else if (args.evolution == WHITE_BLACK) {
+                evolve_wb_parallel(grid, next_grid, width, height, local_rows, rank, size, MPI_COMM_WORLD);
             } else {
                 if (rank == 0)
                     fprintf(stderr, "evolution type not implemented yet\n");

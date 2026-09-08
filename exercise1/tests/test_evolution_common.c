@@ -26,7 +26,6 @@ static int test_neighbor_count(void)
 static int test_parallel_neighbor_count(void)
 {
     const int width = 3;
-    const int local_rows = 3;
 
     uint8_t grid[5 * 3] = {0};
     uint8_t *data = grid + width;

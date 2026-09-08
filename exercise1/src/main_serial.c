@@ -4,6 +4,7 @@
 #include "evolution_ordered.h"
 #include "evolution_static.h"
 #include "evolution_wave.h"
+#include "evolution_wb.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,7 +102,7 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_MONOTONIC, &end);
         read_time = elapsed_time(start, end);
 
-        if (args.evolution == STATIC || args.evolution == WAVE) {
+        if (args.evolution == STATIC || args.evolution == WAVE || args.evolution == WHITE_BLACK) {
             next_grid = malloc((size_t)width * (size_t)height);
 
             if (next_grid == NULL) {
@@ -139,6 +140,8 @@ int main(int argc, char **argv)
                 uint8_t *temporary = grid;
                 grid = next_grid;
                 next_grid = temporary;
+            } else if (args.evolution == WHITE_BLACK) {
+                evolve_wb_serial(grid, next_grid, width, height);
             } else {
                 fprintf(stderr, "evolution type not implemented yet\n");
                 free(next_grid);

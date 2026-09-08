@@ -21,6 +21,7 @@ add_executable(gol_serial
         src/evolution_ordered.c
         src/evolution_static.c
         src/evolution_wave.c
+        src/evolution_wb.c
         include/args.h
         include/pgm.h
         include/grid.h
@@ -28,6 +29,7 @@ add_executable(gol_serial
         include/evolution_ordered.h
         include/evolution_static.h
         include/evolution_wave.h
+        include/evolution_wb.h
 )
 
 add_executable(gol_parallel
@@ -39,6 +41,7 @@ add_executable(gol_parallel
         src/evolution_ordered.c
         src/evolution_static.c
         src/evolution_wave.c
+        src/evolution_wb.c
         include/args.h
         include/pgm.h
         include/grid.h
@@ -46,6 +49,7 @@ add_executable(gol_parallel
         include/evolution_ordered.h
         include/evolution_static.h
         include/evolution_wave.h
+        include/evolution_wb.h
 )
 
 add_executable(test_pgm
