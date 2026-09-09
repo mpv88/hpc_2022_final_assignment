@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// calculates the elapsed time in seconds between two timestamps
+// calculates the elapsed time in seconds
 static double elapsed_time(double start, double end)
 {
     return end - start;
@@ -146,17 +146,8 @@ int main(int argc, char **argv)
             next_grid = allocation + width;
         }
 
-        if (args.evolution == WAVE) {
-            // choose the wave starting point once for the whole simulation
-            if (rank == 0) {
-                srand(INITIALIZATION_SEED);
-                start_row = rand() % height;
-                start_column = rand() % width;
-            }
-
-            MPI_Bcast(&start_row, 1, MPI_INT, 0, MPI_COMM_WORLD);
-            MPI_Bcast(&start_column, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        }
+        if (args.evolution == WAVE && rank == 0)
+            srand(INITIALIZATION_SEED);
 
         for (int step = 1; step <= args.steps; step++) {
             MPI_Barrier(MPI_COMM_WORLD);
@@ -167,15 +158,21 @@ int main(int argc, char **argv)
             } else if (args.evolution == STATIC) {
                 evolve_static_parallel(grid, next_grid, width, local_rows, rank, size, MPI_COMM_WORLD);
 
+                // pointer swapping
                 uint8_t *temporary = grid;
                 grid = next_grid;
                 next_grid = temporary;
             } else if (args.evolution == WAVE) {
-                evolve_wave_parallel(grid, next_grid, width, height, local_rows, rank, size, start_row, start_column, MPI_COMM_WORLD);
+                // choose a new wave starting point for every generation
+                if (rank == 0) {
+                    start_row = rand() % height;
+                    start_column = rand() % width;
+                }
 
-                uint8_t *temporary = grid;
-                grid = next_grid;
-                next_grid = temporary;
+                MPI_Bcast(&start_row, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(&start_column, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+                evolve_wave_parallel(grid, next_grid, width, height, local_rows, rank, size, start_row, start_column, MPI_COMM_WORLD);
             } else if (args.evolution == WHITE_BLACK) {
                 evolve_wb_parallel(grid, next_grid, width, height, local_rows, rank, size, MPI_COMM_WORLD);
             } else {

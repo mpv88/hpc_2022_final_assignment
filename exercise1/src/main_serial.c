@@ -113,12 +113,8 @@ int main(int argc, char **argv)
             }
         }
 
-        if (args.evolution == WAVE) {
-            // choose the wave starting point once for the whole simulation
+        if (args.evolution == WAVE)
             srand(INITIALIZATION_SEED);
-            start_row = rand() % height;
-            start_column = rand() % width;
-        }
 
         // evolution
         for (int step = 1; step <= args.steps; step++) {
@@ -134,12 +130,11 @@ int main(int argc, char **argv)
                 grid = next_grid;
                 next_grid = temporary;
             } else if (args.evolution == WAVE) {
-                evolve_wave_serial(grid, next_grid, width, height, start_row, start_column);
+                // choose a new wave starting point for every generation
+                start_row = rand() % height;
+                start_column = rand() % width;
 
-                // pointer swapping
-                uint8_t *temporary = grid;
-                grid = next_grid;
-                next_grid = temporary;
+                evolve_wave_serial(grid, next_grid, width, height, start_row, start_column);
             } else if (args.evolution == WHITE_BLACK) {
                 evolve_wb_serial(grid, next_grid, width, height);
             } else {

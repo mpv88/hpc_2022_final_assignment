@@ -19,61 +19,93 @@ static int chebyshev_distance(int row, int column, int start_row, int start_colu
     return row_distance > column_distance ? row_distance : column_distance;
 }
 
-void evolve_wave_serial(const uint8_t *current, uint8_t *next, int width, int height, int start_row, int start_column)
-{   // max Chebyshev distance needed to cover the whole domain
+void evolve_wave_serial(uint8_t *grid, uint8_t *next_grid, int width, int height, int start_row, int start_column)
+{
     int max_distance = (width > height ? width : height) / 2;
-    // process wavefronts in increasing Chebyshev distance from chosen centre
+
     for (int distance = 0; distance <= max_distance; distance++) {
+        // compute the complete wavefront without modifying the current grid
         for (int row = 0; row < height; row++) {
             for (int column = 0; column < width; column++) {
-                // only update cells belonging to the current wavefront
                 if (chebyshev_distance(row, column, start_row, start_column, width, height) != distance)
                     continue;
 
-                int live_neighbors = count_live_neighbors(current, row, column, width, height);
-                next[row * width + column] = next_cell_state(current[row * width + column], live_neighbors);
+                int index = row * width + column;
+                int live_neighbors = count_live_neighbors(grid, row, column, width, height);
+                next_grid[index] = next_cell_state(grid[index], live_neighbors);
+            }
+        }
+
+        // apply the complete wavefront before moving to the next one
+        for (int row = 0; row < height; row++) {
+            for (int column = 0; column < width; column++) {
+                if (chebyshev_distance(row, column, start_row, start_column, width, height) != distance)
+                    continue;
+
+                int index = row * width + column;
+                grid[index] = next_grid[index];
             }
         }
     }
 }
 
-void evolve_wave_parallel(uint8_t *current, uint8_t *next, int width, int height, int local_rows, int rank, int size, int start_row, int start_column, MPI_Comm comm)
+static void exchange_halos(uint8_t *grid, int width, int local_rows, int rank, int size, MPI_Comm comm)
 {
     int previous_rank = (rank - 1 + size) % size; // previous rank (neighbor above/left in ring)
     int next_rank = (rank + 1) % size; // next rank (neighbor below/right in ring)
 
-    int base_rows = height / size; // grid split evenly with first (height % size) ranks each get extra row
-    int first_global_row = rank * base_rows + (rank < height % size ? rank : height % size);
-    int max_distance = (width > height ? width : height) / 2; // conservative upper bound on Chebyshev distance
-
     MPI_Request requests[4]; // request handles array for tracking non-blocking ops
 
-    // receive top halo row from previous rank bottom row (tag 0)
-    MPI_Irecv(current - width, width, MPI_UINT8_T, previous_rank, 0, comm, &requests[0]);
-    // receive bottom halo row from next rank top row (tag 1)
-    MPI_Irecv(current + (size_t)local_rows * width, width, MPI_UINT8_T, next_rank, 1, comm, &requests[1]);
-    // send current rank top row to previous rank bottom halo (tag 1)
-    MPI_Isend(current, width, MPI_UINT8_T, previous_rank, 1, comm, &requests[2]);
-    // send current rank bottom row to next rank top halo (tag 0)
-    MPI_Isend(current + (size_t)(local_rows - 1) * width, width, MPI_UINT8_T, next_rank, 0, comm, &requests[3]);
+    MPI_Irecv(grid - width, width, MPI_UINT8_T, previous_rank, 0, comm, &requests[0]);
+    MPI_Irecv(grid + (size_t)local_rows * width, width, MPI_UINT8_T, next_rank, 1, comm, &requests[1]);
+    MPI_Isend(grid, width, MPI_UINT8_T, previous_rank, 1, comm, &requests[2]);
+    MPI_Isend(grid + (size_t)(local_rows - 1) * width, width, MPI_UINT8_T, next_rank, 0, comm, &requests[3]);
 
-    MPI_Waitall(4, requests, MPI_STATUSES_IGNORE); // wait for all halo exchanges to complete
+    MPI_Waitall(4, requests, MPI_STATUSES_IGNORE);
+}
+
+void evolve_wave_parallel(uint8_t *grid, uint8_t *next_grid, int width, int height, int local_rows, int rank, int size, int start_row, int start_column, MPI_Comm comm)
+{
+    int base_rows = height / size;
+    int remainder = height % size;
+    int first_global_row = rank * base_rows + (rank < remainder ? rank : remainder);
+    int max_distance = (width > height ? width : height) / 2;
+
+    // exchange the initial grid boundary
+    exchange_halos(grid, width, local_rows, rank, size, comm);
 
     for (int distance = 0; distance <= max_distance; distance++) {
+        // compute the complete local wavefront without modifying the grid
 #pragma omp parallel for schedule(static)
         for (int local_row = 0; local_row < local_rows; local_row++) {
             int global_row = first_global_row + local_row;
 
             for (int column = 0; column < width; column++) {
                 if (chebyshev_distance(global_row, column, start_row, start_column, width, height) != distance)
-                    continue; // skip cells not belonging to the current wavefront layer
+                    continue;
 
-                int live_neighbors = count_live_neighbors_parallel(current, local_row, column, width);
-                next[local_row * width + column] = next_cell_state(current[local_row * width + column], live_neighbors);
+                int index = local_row * width + column;
+                int live_neighbors = count_live_neighbors_parallel(grid, local_row, column, width);
+                next_grid[index] = next_cell_state(grid[index], live_neighbors);
             }
         }
 
-        // ensure complete wavefront is finished before starting next
+        // apply the complete local wavefront
+#pragma omp parallel for schedule(static)
+        for (int local_row = 0; local_row < local_rows; local_row++) {
+            int global_row = first_global_row + local_row;
+
+            for (int column = 0; column < width; column++) {
+                if (chebyshev_distance(global_row, column, start_row, start_column, width, height) != distance)
+                    continue;
+
+                int index = local_row * width + column;
+                grid[index] = next_grid[index];
+            }
+        }
+        // make the updated boundary available to neighbouring ranks
+        exchange_halos(grid, width, local_rows, rank, size, comm);
+        // all ranks must finish this wavefront before starting the next
         MPI_Barrier(comm);
     }
 }

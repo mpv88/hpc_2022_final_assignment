@@ -8,18 +8,18 @@
 #include <stdint.h>
 #include <mpi.h>
 
-/// \brief Evolves a grid by one generation using synchronous wave evolution.
-/// \param current input grid representing the current generation.
-/// \param next output grid receiving the next generation.
+/// \brief Evolves a grid by one generation using wavefront ordering.
+/// \param grid grid to evolve in place.
+/// \param next_grid temporary grid used to store the current wavefront.
 /// \param width width of the grid in cells.
 /// \param height height of the grid in cells.
 /// \param start_row row of the wave starting cell.
 /// \param start_column column of the wave starting cell.
-void evolve_wave_serial(const uint8_t *current, uint8_t *next, int width, int height, int start_row, int start_column);
+void evolve_wave_serial(uint8_t *grid, uint8_t *next_grid, int width, int height, int start_row, int start_column);
 
-/// \brief Evolves the local portion of a grid by one generation using MPI and OpenMP wave evolution.
-/// \param current current local grid including its ghost rows.
-/// \param next buffer receiving the next local generation.
+/// \brief Evolves the local portion of a grid by one generation using MPI and OpenMP wavefront ordering.
+/// \param grid local grid including its ghost rows.
+/// \param next_grid temporary local grid used to store the current wavefront.
 /// \param width width of the global grid in cells.
 /// \param height height of the global grid in cells.
 /// \param local_rows number of real rows owned by this MPI rank.
@@ -28,7 +28,6 @@ void evolve_wave_serial(const uint8_t *current, uint8_t *next, int width, int he
 /// \param start_row global row of the wave starting cell.
 /// \param start_column global column of the wave starting cell.
 /// \param comm MPI communicator used for communication.
-void evolve_wave_parallel(uint8_t *current, uint8_t *next, int width, int height, int local_rows, int rank, int size, int start_row, int start_column, MPI_Comm comm);
+void evolve_wave_parallel(uint8_t *grid, uint8_t *next_grid, int width, int height, int local_rows, int rank, int size, int start_row, int start_column, MPI_Comm comm);
 
 #endif
-
