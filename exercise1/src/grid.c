@@ -35,8 +35,8 @@ int grid_initialize(uint8_t **data, int width, int height, unsigned int seed)
 int grid_initialize_mpi(uint8_t **data, int width, int height, int *local_rows, int rank, int size, unsigned int seed)
 {
     // mpi: determine the portion of rows assigned to this process
-    int base_rows = height / size;
-    int remainder = height % size;
+    int base_rows = height / size; // base #rows per rank
+    int remainder = height % size; // #ranks receiving additional row(s)
     *local_rows = base_rows + (rank < remainder);
 
     size_t local_size = (size_t)(*local_rows) * (size_t)width;
