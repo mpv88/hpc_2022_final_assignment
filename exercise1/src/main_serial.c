@@ -1,6 +1,7 @@
 #include "args.h"
 #include "grid.h"
 #include "pgm.h"
+#include "benchmark.h"
 #include "evolution_ordered.h"
 #include "evolution_static.h"
 #include "evolution_wave.h"
@@ -150,6 +151,8 @@ int main(int argc, char **argv)
             evolution_time += elapsed_time(start, end);
 
             if (args.dump_frequency > 0 && step % args.dump_frequency == 0) {
+                clock_gettime(CLOCK_MONOTONIC, &start);
+
                 if (write_snapshot(args.pattern_name, grid, width, height, step) != 0) {
                     free(next_grid);
                     free(grid);
@@ -157,10 +160,15 @@ int main(int argc, char **argv)
                     free_arguments(&args);
                     return 1;
                 }
+
+                clock_gettime(CLOCK_MONOTONIC, &end);
+                write_time += elapsed_time(start, end);
             }
         }
 
         if (args.dump_frequency == 0) {
+            clock_gettime(CLOCK_MONOTONIC, &start);
+
             if (write_snapshot(args.pattern_name, grid, width, height, args.steps) != 0) {
                 free(next_grid);
                 free(grid);
@@ -168,9 +176,34 @@ int main(int argc, char **argv)
                 free_arguments(&args);
                 return 1;
             }
+
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            write_time += elapsed_time(start, end);
         }
 
-        printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
+        if (args.benchmark) {
+            const char *evolution_name;
+
+            if (args.evolution == ORDERED)
+                evolution_name = "ordered";
+            else if (args.evolution == STATIC)
+                evolution_name = "static";
+            else if (args.evolution == WAVE)
+                evolution_name = "wave";
+            else
+                evolution_name = "white-black";
+
+            const char *repetition_string = getenv("BENCHMARK_REPETITION");
+            int repetition = repetition_string != NULL ? (int)strtol(repetition_string, NULL, 10) : 0;
+            double total_time = read_time + evolution_time + write_time;
+
+            benchmark_write_result(evolution_name, width, height, args.steps,
+                                    1, 1, repetition, read_time, evolution_time,
+                                    write_time, total_time);
+        } else {
+            printf("read_time=%.6f evolution_time=%.6f write_time=%.6f\n",
+                   read_time, evolution_time, write_time);
+        }
 
         free(next_grid);
         free(grid);

@@ -17,6 +17,7 @@ ARGUMENT        MEANING
 -f <string>     the name of the file to be either read or written
 -n <value>      number of steps to be calculated
 -s <value>      every how many steps a dump of the system is saved on a file (0 meaning only at the end)
+-b              enable benchmark mode to time execution
 */
 
 #define DEFAULT_PLAYGROUND_SIZE 100
@@ -25,7 +26,7 @@ ARGUMENT        MEANING
 #define OUTPUT_DIRECTORY "patterns/output/"
 #define SNAPSHOT_SUFFIX "_"
 
-/// converts a string to an integer and checks for invalid input.
+/// converts a string to an integer and checks for invalid input
 static int parse_integer(const char *value, int *result)
 {
     char *end;
@@ -37,7 +38,7 @@ static int parse_integer(const char *value, int *result)
     return 0;
 }
 
-/// builds the filename of a pattern snapshot.
+/// builds the filename of a pattern snapshot
 char *build_snapshot_filename(const char *pattern_name, int step)
 {
     size_t length = strlen(OUTPUT_DIRECTORY) + strlen(pattern_name) +
@@ -53,7 +54,7 @@ char *build_snapshot_filename(const char *pattern_name, int step)
     return filename;
 }
 
-/// prints an argument error, frees allocated memory and returns failure.
+/// prints an argument error, frees allocated memory and returns failure
 static int argument_error(arguments_t *args, const char *message)
 {
     fprintf(stderr, "error: %s\n", message);
@@ -73,12 +74,13 @@ int parse_arguments(int argc, char **argv, arguments_t *args)
         .evolution = ORDERED,
         .steps = DEFAULT_NUMBER_OF_STEPS,
         .dump_frequency = DEFAULT_DUMP_FREQUENCY,
-        .pattern_name = NULL
+        .pattern_name = NULL,
+        .benchmark = 0
     };
 
     optind = 1; // global variable for getopt() to keep track of which argv is currently parsed
 
-    while ((c = getopt(argc, argv, "irk:w:h:e:f:n:s:")) != -1) {
+    while ((c = getopt(argc, argv, "irk:w:h:e:f:n:s:b")) != -1) {
         switch (c) {
         case 'i':
             if (args->action) return argument_error(args, "-i and -r are mutually exclusive");
@@ -123,6 +125,9 @@ int parse_arguments(int argc, char **argv, arguments_t *args)
         case 's':
             if (parse_integer(optarg, &args->dump_frequency) != 0 || args->dump_frequency < 0)
                 return argument_error(args, "invalid dump frequency");
+            break;
+        case 'b':
+            args->benchmark = 1;
             break;
         default:
             return argument_error(args, "unknown or incomplete option");

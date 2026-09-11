@@ -28,6 +28,7 @@ typedef struct {
     int steps;
     int dump_frequency;
     char *pattern_name;
+    int benchmark;
 } arguments_t;
 
 /// \brief Parses and validates the command-line arguments.

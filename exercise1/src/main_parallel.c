@@ -1,12 +1,14 @@
 #include "args.h"
 #include "grid.h"
 #include "pgm.h"
+#include "benchmark.h"
 #include "evolution_ordered.h"
 #include "evolution_static.h"
 #include "evolution_wave.h"
 #include "evolution_wb.h"
 
 #include <mpi.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -38,19 +40,11 @@ int main(int argc, char **argv)
     int start_row = 0;
     int start_column = 0;
     double start, end;
+    double local_time, global_time;
     double initialization_time = 0.0;
     double read_time = 0.0;
     double write_time = 0.0;
     double evolution_time = 0.0;
-
-    // request MPI support where only one thread performs MPI calls
-    // MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
-    //
-    // if (provided < MPI_THREAD_FUNNELED) {
-    //     fprintf(stderr, "MPI does not provide MPI_THREAD_FUNNELED\n");
-    //     MPI_Finalize();
-    //     return 1;
-    // }
 
     // initialize MPI
     MPI_Init(&argc, &argv);
@@ -117,6 +111,7 @@ int main(int argc, char **argv)
             return 1;
         }
 
+        // read pgm
         MPI_Barrier(MPI_COMM_WORLD);
         start = MPI_Wtime();
 
@@ -127,9 +122,13 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        MPI_Barrier(MPI_COMM_WORLD);
         end = MPI_Wtime();
-        read_time = elapsed_time(start, end);
+        local_time = elapsed_time(start, end);
+
+        MPI_Reduce(&local_time, &global_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+        if (rank == 0)
+            read_time = global_time;
 
         if (args.evolution == STATIC || args.evolution == WAVE || args.evolution == WHITE_BLACK) {
             size_t allocation_size = ((size_t)local_rows + 2) * (size_t)width;
@@ -149,6 +148,7 @@ int main(int argc, char **argv)
         if (args.evolution == WAVE && rank == 0)
             srand(INITIALIZATION_SEED);
 
+        // evolution
         for (int step = 1; step <= args.steps; step++) {
             MPI_Barrier(MPI_COMM_WORLD);
             start = MPI_Wtime();
@@ -187,11 +187,18 @@ int main(int argc, char **argv)
                 return 1;
             }
 
-            MPI_Barrier(MPI_COMM_WORLD);
             end = MPI_Wtime();
-            evolution_time += elapsed_time(start, end);
+            local_time = elapsed_time(start, end);
+
+            MPI_Reduce(&local_time, &global_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+            if (rank == 0)
+                evolution_time += global_time;
 
             if (args.dump_frequency > 0 && step % args.dump_frequency == 0) {
+                MPI_Barrier(MPI_COMM_WORLD);
+                start = MPI_Wtime();
+
                 if (write_snapshot(args.pattern_name, grid, width, local_rows, height, rank, size, step) != 0) {
                     free(next_grid != NULL ? next_grid - width : NULL);
                     free(grid - width);
@@ -200,10 +207,21 @@ int main(int argc, char **argv)
                     MPI_Finalize();
                     return 1;
                 }
+
+                end = MPI_Wtime();
+                local_time = elapsed_time(start, end);
+
+                MPI_Reduce(&local_time, &global_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+                if (rank == 0)
+                    write_time += global_time;
             }
         }
 
         if (args.dump_frequency == 0) {
+            MPI_Barrier(MPI_COMM_WORLD);
+            start = MPI_Wtime();
+
             if (write_snapshot(args.pattern_name, grid, width, local_rows, height, rank, size, args.steps) != 0) {
                 free(next_grid != NULL ? next_grid - width : NULL);
                 free(grid - width);
@@ -212,10 +230,43 @@ int main(int argc, char **argv)
                 MPI_Finalize();
                 return 1;
             }
+
+            end = MPI_Wtime();
+            local_time = elapsed_time(start, end);
+
+            MPI_Reduce(&local_time, &global_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+            if (rank == 0)
+                write_time += global_time;
         }
 
-        if (rank == 0)
-            printf("read_time=%.6f evolution_time=%.6f\n", read_time, evolution_time);
+        if (rank == 0) {
+            if (args.benchmark) {
+                const char *evolution_name;
+
+                if (args.evolution == ORDERED)
+                    evolution_name = "ordered";
+                else if (args.evolution == STATIC)
+                    evolution_name = "static";
+                else if (args.evolution == WAVE)
+                    evolution_name = "wave";
+                else
+                    evolution_name = "white-black";
+
+                int omp_threads = omp_get_max_threads();
+                const char *repetition_string = getenv("BENCHMARK_REPETITION");
+                int repetition = repetition_string != NULL ? (int)strtol(repetition_string, NULL, 10) : 0;
+                double total_time = read_time + evolution_time + write_time;
+
+                benchmark_write_result(evolution_name, width, height, args.steps,
+                                        size, omp_threads, repetition,
+                                        read_time, evolution_time,
+                                        write_time, total_time);
+            } else {
+                printf("read_time=%.6f evolution_time=%.6f write_time=%.6f\n",
+                       read_time, evolution_time, write_time);
+            }
+        }
 
         free(next_grid != NULL ? next_grid - width : NULL);
         free(grid - width);
