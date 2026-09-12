@@ -6,6 +6,7 @@
 #include "evolution_static.h"
 #include "evolution_wave.h"
 #include "evolution_wb.h"
+#include "evolution_fog.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -117,6 +118,9 @@ int main(int argc, char **argv)
         if (args.evolution == WAVE)
             srand(INITIALIZATION_SEED);
 
+        if (args.fog_enabled)
+            fog_seed(FOG_SEED);
+
         // evolution
         for (int step = 1; step <= args.steps; step++) {
             clock_gettime(CLOCK_MONOTONIC, &start);
@@ -146,6 +150,9 @@ int main(int argc, char **argv)
                 free_arguments(&args);
                 return 1;
             }
+
+            if (args.fog_enabled)
+                apply_fog_serial(grid, width, height, args.p_l);
 
             clock_gettime(CLOCK_MONOTONIC, &end);
             evolution_time += elapsed_time(start, end);

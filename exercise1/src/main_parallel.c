@@ -6,6 +6,8 @@
 #include "evolution_static.h"
 #include "evolution_wave.h"
 #include "evolution_wb.h"
+#include "evolution_fog.h"
+#include "evolution_common.h"
 
 #include <mpi.h>
 #include <omp.h>
@@ -37,8 +39,9 @@ int main(int argc, char **argv)
     uint8_t *next_grid = NULL;
     int rank, size;
     int width, height, local_rows;
-    int start_row = 0;
-    int start_column = 0;
+    int local_start_row = 0;
+    int wave_start_row = 0;
+    int wave_start_column = 0;
     double start, end;
     double local_time, global_time;
     double initialization_time = 0.0;
@@ -48,6 +51,17 @@ int main(int argc, char **argv)
 
     // initialize MPI
     MPI_Init(&argc, &argv);
+    /*
+    int provided;
+    MPI_Init_thread(&argc, &argv,
+                    MPI_THREAD_FUNNELED,
+                    &provided);
+
+    if (provided < MPI_THREAD_FUNNELED) {
+        fprintf(stderr, "MPI implementation does not provide MPI_THREAD_FUNNELED\n");
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    */
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -130,6 +144,12 @@ int main(int argc, char **argv)
         if (rank == 0)
             read_time = global_time;
 
+        // calculate the first global row owned by this rank
+        int base_rows = height / size;
+        int remainder = height % size;
+
+        local_start_row = rank * base_rows + (rank < remainder ? rank : remainder);
+
         if (args.evolution == STATIC || args.evolution == WAVE || args.evolution == WHITE_BLACK) {
             size_t allocation_size = ((size_t)local_rows + 2) * (size_t)width;
             uint8_t *allocation = malloc(allocation_size);
@@ -146,7 +166,10 @@ int main(int argc, char **argv)
         }
 
         if (args.evolution == WAVE && rank == 0)
-            srand(INITIALIZATION_SEED);
+            wave_seed(WAVE_SEED);
+
+        if (args.fog_enabled && rank == 0)
+            fog_seed(FOG_SEED);
 
         // evolution
         for (int step = 1; step <= args.steps; step++) {
@@ -165,14 +188,14 @@ int main(int argc, char **argv)
             } else if (args.evolution == WAVE) {
                 // choose a new wave starting point for every generation
                 if (rank == 0) {
-                    start_row = rand() % height;
-                    start_column = rand() % width;
+                    wave_start_row = rand() % height;
+                    wave_start_column = rand() % width;
                 }
 
-                MPI_Bcast(&start_row, 1, MPI_INT, 0, MPI_COMM_WORLD);
-                MPI_Bcast(&start_column, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(&wave_start_row, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                MPI_Bcast(&wave_start_column, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-                evolve_wave_parallel(grid, next_grid, width, height, local_rows, rank, size, start_row, start_column, MPI_COMM_WORLD);
+                evolve_wave_parallel(grid, next_grid, width, height, local_rows, rank, size, wave_start_row, wave_start_column, MPI_COMM_WORLD);
             } else if (args.evolution == WHITE_BLACK) {
                 evolve_wb_parallel(grid, next_grid, width, height, local_rows, rank, size, MPI_COMM_WORLD);
             } else {
@@ -185,6 +208,12 @@ int main(int argc, char **argv)
                 free_arguments(&args);
                 MPI_Finalize();
                 return 1;
+            }
+
+            if (args.fog_enabled) {
+                exchange_halos_parallel(grid, width, local_rows, rank, size, MPI_COMM_WORLD);
+
+                apply_fog_parallel(grid, width, height, local_rows, local_start_row, rank, size, args.p_l, MPI_COMM_WORLD);
             }
 
             end = MPI_Wtime();
@@ -258,10 +287,7 @@ int main(int argc, char **argv)
                 int repetition = repetition_string != NULL ? (int)strtol(repetition_string, NULL, 10) : 0;
                 double total_time = read_time + evolution_time + write_time;
 
-                benchmark_write_result(evolution_name, width, height, args.steps,
-                                        size, omp_threads, repetition,
-                                        read_time, evolution_time,
-                                        write_time, total_time);
+                benchmark_write_result(evolution_name, width, height, args.steps, size, omp_threads, repetition, read_time, evolution_time, write_time, total_time);
             } else {
                 printf("read_time=%.6f evolution_time=%.6f write_time=%.6f\n",
                        read_time, evolution_time, write_time);

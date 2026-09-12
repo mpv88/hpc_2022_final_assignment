@@ -1,4 +1,4 @@
-#include "../include/pgm.h"
+#include "pgm.h"
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>

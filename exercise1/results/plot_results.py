@@ -7,239 +7,152 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-CSV_COLUMNS = ['evolution', 'grid_width', 'grid_height', 'steps', 'mpi_tasks', 'omp_threads', 'repetition', 'read_time', 'evolution_time', 'write_time', 'total_time']
+DEFAULT_CSV_DIR = Path(__file__).resolve().parent          # results/
+DEFAULT_FIG_DIR = Path(__file__).resolve().parent.parent / "figs"  # exercise1/figs/
 
-def parse_arguments():
-    '''parse command-line arguments'''
-    parser = argparse.ArgumentParser(
-        description='plot Game of Life HPC benchmark results'
+COLUMNS = [
+    "evolution", "grid_width", "grid_height", "steps",
+    "mpi_tasks", "omp_threads", "repetition",
+    "read_time", "evolution_time", "write_time", "total_time",
+]
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Plot Game of Life HPC benchmark results")
+    p.add_argument(
+        "csv_files", nargs="*", type=Path,
+        help="CSV files (default: all *.csv in results/)"
     )
-    parser.add_argument(
-        'csv_files', nargs='+', type=Path,
-        help='benchmark CSV files'
+    p.add_argument(
+        "--out", type=Path, default=DEFAULT_FIG_DIR,
+        help=f"output directory for plots (default: {DEFAULT_FIG_DIR})"
     )
-    parser.add_argument(
-        '--node', choices=['THIN', 'EPYC'],
-        help='node type; if omitted, infer it from the CSV path'
+    p.add_argument(
+        "--x", choices=["mpi_tasks", "omp_threads"], default=None,
+        help="x-axis variable (default: infer from data)"
     )
-    return parser.parse_args()
+    return p.parse_args()
 
-def detect_node(csv_files, explicit_node):
-    '''determine the node name used in plot titles'''
-    if explicit_node is not None:
-        return explicit_node
-
-    text = ' '.join(str(path).lower() for path in csv_files)
-
-    if re.search(r'(^|[^a-z])thin([^a-z]|$)', text):
-        return 'THIN'
-    if re.search(r'(^|[^a-z])epyc([^a-z]|$)', text):
-        return 'EPYC'
-
-    raise ValueError(
-        'could not determine the node type from the CSV path; '
-        'use --node THIN or --node EPYC'
-    )
-
-def load_csv(csv_files):
-    '''load and validate benchmark CSV files'''
+def load_data(csv_files):
     frames = []
-
     for path in csv_files:
-        if not path.is_file():
-            raise FileNotFoundError(f'CSV file not found: {path}')
-
-        frame = pd.read_csv(path)
-        missing = [column for column in CSV_COLUMNS if column not in frame.columns]
-
-        if missing:
-            raise ValueError(
-                f'{path}: missing columns: {", ".join(missing)}'
-            )
-
-        frames.append(frame)
+        df = pd.read_csv(path)
+        if not set(COLUMNS).issubset(df.columns):
+            missing = set(COLUMNS) - set(df.columns)
+            raise ValueError(f"{path}: missing columns {missing}")
+        frames.append(df)
 
     data = pd.concat(frames, ignore_index=True)
-
-    numeric_columns = ['grid_width', 'grid_height', 'steps', 'mpi_tasks', 'omp_threads', 'repetition', 'read_time', 'evolution_time', 'write_time', 'total_time']
-
-    for column in numeric_columns:
-        data[column] = pd.to_numeric(data[column], errors='raise')
-
+    num_cols = [
+        "grid_width", "grid_height", "steps",
+        "mpi_tasks", "omp_threads", "repetition",
+        "read_time", "evolution_time", "write_time", "total_time",
+    ]
+    for c in num_cols:
+        data[c] = pd.to_numeric(data[c], errors="raise")
     return data
 
 def aggregate(data):
-    '''calculate mean and standard deviation over repetitions'''
-    grouping = ['evolution', 'grid_width', 'grid_height', 'steps', 'mpi_tasks', 'omp_threads']
-
-    result = (
-        data.groupby(grouping, as_index=False)['evolution_time']
-        .agg(['mean', 'std', 'count'])
+    group_cols = ["evolution", "grid_width", "grid_height", "steps", "mpi_tasks", "omp_threads"]
+    agg = (
+        data.groupby(group_cols, as_index=False)["evolution_time"]
+        .agg(["mean", "std", "count"])
         .reset_index()
     )
-    result['std'] = result['std'].fillna(0.0)
-    return result
+    agg["std"] = agg["std"].fillna(0.0)
+    return agg
 
-def experiment_name(csv_files):
-    '''get the experiment name from the CSV parent directory'''
-    parents = {path.parent.name for path in csv_files}
-    return next(iter(parents)) if len(parents) == 1 else 'combined'
-
-def output_directory(csv_files):
-    '''return exercise1/figs/<experiment>'''
-    results_dir = Path(__file__).resolve().parent
-    exercise_dir = results_dir.parent
-    directory = exercise_dir / 'figs' / experiment_name(csv_files)
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
-
-def plot_mean_band(ax, frame, x_column, y_column, std_column, label):
-    '''plot a mean curve and its standard-deviation band'''
-    frame = frame.sort_values(x_column)
-
-    ax.plot(
-        frame[x_column], frame[y_column],
-        marker='o', label=label
-    )
+def plot_band(ax, df, x, y, yerr, label):
+    df = df.sort_values(x)
+    ax.plot(df[x], df[y], marker="o", label=label)
     ax.fill_between(
-        frame[x_column],
-        frame[y_column] - frame[std_column],
-        frame[y_column] + frame[std_column],
-        alpha=0.15
+        df[x],
+        df[y] - df[yerr],
+        df[y] + df[yerr],
+        alpha=0.25, linewidth=0, edgecolor=None
     )
 
-def processor_label(x_column):
-    '''return the human-readable processor-axis label'''
-    return 'OMP threads' if x_column == 'omp_threads' else 'MPI tasks'
+def make_plots(data, out_dir, x_col):
+    agg = aggregate(data)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-def plot_speedup(data, node, directory, x_column, scaling_type):
-    '''plot speedup and ideal linear scaling'''
-    grouped = aggregate(data)
+    # --- speedup ---
     fig, ax = plt.subplots()
+    for evol, df in agg.groupby("evolution"):
+        df = df.sort_values(x_col).copy()
+        base = df.iloc[0]["mean"]
+        df["speedup"] = base / df["mean"]
+        df["speedup_err"] = df["speedup"] * df["std"] / df["mean"]
+        plot_band(ax, df, x_col, "speedup", "speedup_err", evol)
 
-    for evolution, frame in grouped.groupby('evolution'):
-        frame = frame.sort_values(x_column).copy()
-        baseline = frame.iloc[0]['mean']
-        frame['speedup'] = baseline / frame['mean']
-        frame['speedup_std'] = (
-                frame['speedup'] * frame['std'] / frame['mean']
-        )
-        plot_mean_band(
-            ax, frame, x_column, 'speedup', 'speedup_std', evolution
-        )
-
-    x_min = grouped[x_column].min()
-    x_max = grouped[x_column].max()
-    ax.plot(
-        [x_min, x_max], [1, x_max / x_min],
-        linestyle='--', label='ideal'
-    )
-
-    ax.set_title(f'{scaling_type} scaling speedup — {node}')
-    ax.set_xlabel(processor_label(x_column))
-    ax.set_ylabel('Speedup')
+    xmin, xmax = agg[x_col].min(), agg[x_col].max()
+    ax.plot([xmin, xmax], [1, xmax / xmin], "--", label="ideal")
+    ax.set_title("Strong scaling speedup")
+    ax.set_xlabel("OMP threads" if x_col == "omp_threads" else "MPI tasks")
+    ax.set_ylabel("Speedup")
     ax.grid(True, alpha=0.3)
     ax.legend()
+    fig.tight_layout()
+    fig.savefig(out_dir / f"speedup_{x_col}.png", dpi=200, bbox_inches="tight")
+    plt.close(fig)
 
-    save_figure(
-        fig, directory,
-        f'{scaling_type}_speedup_{x_column}_{node.lower()}.png'
-    )
-
-def plot_time(data, node, directory, x_column, scaling_type):
-    '''plot execution time'''
-    grouped = aggregate(data)
+    # --- time ---
     fig, ax = plt.subplots()
+    for evol, df in agg.groupby("evolution"):
+        df = df.rename(columns={"mean": "time", "std": "time_std"})
+        plot_band(ax, df, x_col, "time", "time_std", evol)
 
-    for evolution, frame in grouped.groupby('evolution'):
-        frame = frame.rename(
-            columns={'mean': 'time', 'std': 'time_std'}
-        )
-        plot_mean_band(
-            ax, frame, x_column, 'time', 'time_std', evolution
-        )
-
-    ax.set_title(f'{scaling_type} scaling execution time — {node}')
-    ax.set_xlabel(processor_label(x_column))
-    ax.set_ylabel('Evolution time (s)')
+    ax.set_title("Execution time")
+    ax.set_xlabel("OMP threads" if x_col == "omp_threads" else "MPI tasks")
+    ax.set_ylabel("Evolution time (s)")
     ax.grid(True, alpha=0.3)
     ax.legend()
+    fig.tight_layout()
+    fig.savefig(out_dir / f"time_{x_col}.png", dpi=200, bbox_inches="tight")
+    plt.close(fig)
 
-    save_figure(
-        fig, directory,
-        f'{scaling_type}_time_{x_column}_{node.lower()}.png'
-    )
-
-def plot_efficiency(data, node, directory, x_column, scaling_type):
-    '''plot parallel efficiency'''
-    grouped = aggregate(data)
+    # --- efficiency ---
     fig, ax = plt.subplots()
+    for evol, df in agg.groupby("evolution"):
+        df = df.sort_values(x_col).copy()
+        base = df.iloc[0]["mean"]
+        df["eff"] = base / (df["mean"] * df[x_col])
+        df["eff_err"] = df["eff"] * df["std"] / df["mean"]
+        plot_band(ax, df, x_col, "eff", "eff_err", evol)
 
-    for evolution, frame in grouped.groupby('evolution'):
-        frame = frame.sort_values(x_column).copy()
-        baseline = frame.iloc[0]['mean']
-
-        if scaling_type == 'strong':
-            frame['efficiency'] = baseline / (frame['mean'] * frame[x_column])
-            frame['efficiency_std'] = (
-                    frame['efficiency'] * frame['std'] / frame['mean']
-            )
-        else:  # weak scaling
-            frame['efficiency'] = baseline / frame['mean']
-            frame['efficiency_std'] = (
-                    frame['efficiency'] * frame['std'] / frame['mean']
-            )
-
-        plot_mean_band(
-            ax, frame, x_column,
-            'efficiency', 'efficiency_std', evolution
-        )
-
-    ax.axhline(1.0, linestyle='--', label='ideal')
-    ax.set_title(f'{scaling_type} scaling efficiency — {node}')
-    ax.set_xlabel(processor_label(x_column))
-    ax.set_ylabel('Parallel efficiency')
+    ax.axhline(1.0, linestyle="--", label="ideal")
+    ax.set_title("Parallel efficiency")
+    ax.set_xlabel("OMP threads" if x_col == "omp_threads" else "MPI tasks")
+    ax.set_ylabel("Efficiency")
     ax.set_ylim(bottom=0)
     ax.grid(True, alpha=0.3)
     ax.legend()
-
-    save_figure(
-        fig, directory,
-        f'{scaling_type}_efficiency_{x_column}_{node.lower()}.png'
-    )
-
-def save_figure(fig, directory, filename):
-    '''save and close a figure'''
     fig.tight_layout()
-    fig.savefig(directory / filename, dpi=200, bbox_inches='tight')
+    fig.savefig(out_dir / f"efficiency_{x_col}.png", dpi=200, bbox_inches="tight")
     plt.close(fig)
 
 def main():
-    '''load results and generate plots'''
-    args = parse_arguments()
-    node = detect_node(args.csv_files, args.node)
-    data = load_csv(args.csv_files)
-    directory = output_directory(args.csv_files)
-    experiment = experiment_name(args.csv_files).lower()
+    args = parse_args()
 
-    if 'omp' in experiment:
-        plot_speedup(data, node, directory, 'omp_threads', 'strong')
-        plot_time(data, node, directory, 'omp_threads', 'strong')
-        plot_efficiency(data, node, directory, 'omp_threads', 'strong')
-    elif 'weak' in experiment:
-        plot_time(data, node, directory, 'mpi_tasks', 'weak')
-        plot_efficiency(data, node, directory, 'mpi_tasks', 'weak')
-    elif 'strong' in experiment or 'mpi' in experiment:
-        plot_speedup(data, node, directory, 'mpi_tasks', 'strong')
-        plot_time(data, node, directory, 'mpi_tasks', 'strong')
-        plot_efficiency(data, node, directory, 'mpi_tasks', 'strong')
-    else:
-        raise ValueError(
-            f'could not determine experiment type from directory "{experiment}"'
-            'use a folder name containing omp, strong, or weak'
-        )
+    csv_files = args.csv_files
+    if not csv_files:
+        csv_files = sorted(DEFAULT_CSV_DIR.glob("*.csv"))
+        if not csv_files:
+            raise SystemExit(f"No CSV files found in {DEFAULT_CSV_DIR}")
 
-    print(f'plots saved to: {directory}')
+    data = load_data(csv_files)
 
-if __name__ == '__main__':
+    # infer x-axis if not given
+    x_col = args.x
+    if x_col is None:
+        if "omp_threads" in data.columns and data["omp_threads"].nunique() > 1:
+            x_col = "omp_threads"
+        elif "mpi_tasks" in data.columns and data["mpi_tasks"].nunique() > 1:
+            x_col = "mpi_tasks"
+        else:
+            raise SystemExit("Cannot infer x-axis; use --x mpi_tasks or --x omp_threads")
+
+    make_plots(data, args.out, x_col)
+    print(f"Plots saved to: {args.out}")
+
+if __name__ == "__main__":
     main()

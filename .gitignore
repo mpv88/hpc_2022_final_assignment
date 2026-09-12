@@ -79,3 +79,8 @@ build/
 
 # test pgm images
 /exercise1/tests/images/*
+
+# NOTE: to be removed when final version is ready
+# results & final plots
+/exercise1/figs/*
+/exercise1/results/*.csv

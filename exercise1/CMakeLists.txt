@@ -22,6 +22,7 @@ add_executable(gol_serial
         src/evolution_static.c
         src/evolution_wave.c
         src/evolution_wb.c
+        src/evolution_fog.c
         src/benchmark.c
         include/args.h
         include/pgm.h
@@ -31,6 +32,7 @@ add_executable(gol_serial
         include/evolution_static.h
         include/evolution_wave.h
         include/evolution_wb.h
+        include/evolution_fog.h
         include/benchmark.h
 )
 
@@ -44,6 +46,7 @@ add_executable(gol_parallel
         src/evolution_static.c
         src/evolution_wave.c
         src/evolution_wb.c
+        src/evolution_fog.c
         src/benchmark.c
         include/args.h
         include/pgm.h
@@ -53,6 +56,7 @@ add_executable(gol_parallel
         include/evolution_static.h
         include/evolution_wave.h
         include/evolution_wb.h
+        include/evolution_fog.h
         include/benchmark.h
 )
 
@@ -74,17 +78,27 @@ add_executable(test_evolution_common
         include/evolution_common.h
 )
 
+add_executable(test_evolution_fog
+        tests/test_evolution_fog.c
+        src/evolution_fog.c
+        src/evolution_common.c
+        include/evolution_fog.h
+        include/evolution_common.h
+)
+
 target_include_directories(gol_serial PRIVATE include)
 target_include_directories(gol_parallel PRIVATE include)
 target_include_directories(test_pgm PRIVATE include)
 target_include_directories(test_grid PRIVATE include)
 target_include_directories(test_evolution_common PRIVATE include)
+target_include_directories(test_evolution_fog PRIVATE include)
 
 target_compile_options(gol_serial PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(gol_parallel PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(test_pgm PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(test_grid PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(test_evolution_common PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(test_evolution_fog PRIVATE -Wall -Wextra -Wpedantic)
 
 target_compile_definitions(gol_serial PRIVATE _POSIX_C_SOURCE=200809L)
 target_compile_definitions(gol_parallel PRIVATE _POSIX_C_SOURCE=200809L)
@@ -112,4 +126,13 @@ target_link_libraries(test_pgm PRIVATE
 target_link_libraries(test_grid PRIVATE
         OpenMP::OpenMP_C
         MPI::MPI_C
+)
+
+target_link_libraries(test_evolution_common PRIVATE
+        MPI::MPI_C
+)
+
+target_link_libraries(test_evolution_fog PRIVATE
+        MPI::MPI_C
+        OpenMP::OpenMP_C
 )

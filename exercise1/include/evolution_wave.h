@@ -8,6 +8,12 @@
 #include <stdint.h>
 #include <mpi.h>
 
+#define WAVE_SEED 3
+
+/// \brief Seeds the random generator used to select wave origins.
+/// \param seed seed used to initialize the random number generator.
+void wave_seed(unsigned int seed);
+
 /// \brief Evolves a grid by one generation using wavefront ordering.
 /// \param grid grid to evolve in place.
 /// \param next_grid temporary grid used to store the current wavefront.

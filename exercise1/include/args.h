@@ -29,6 +29,8 @@ typedef struct {
     int dump_frequency;
     char *pattern_name;
     int benchmark;
+    int fog_enabled;
+    double p_l;
 } arguments_t;
 
 /// \brief Parses and validates the command-line arguments.

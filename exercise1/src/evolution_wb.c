@@ -1,25 +1,6 @@
 #include "evolution_wb.h"
 #include "evolution_common.h"
 
-static void exchange_halos(uint8_t *grid, int width, int local_rows, int rank, int size, MPI_Comm comm)
-{
-    int previous_rank = (rank - 1 + size) % size; // previous rank (neighbor above/left in ring)
-    int next_rank = (rank + 1) % size; // next rank (neighbor below/right in ring)
-
-    MPI_Request requests[4]; // request handles array for tracking non-blocking ops
-
-    // receive top halo row from previous rank bottom row (tag 0)
-    MPI_Irecv(grid - width, width, MPI_UINT8_T, previous_rank, 0, comm, &requests[0]);
-    // receive bottom halo row from next rank top row (tag 1)
-    MPI_Irecv(grid + (size_t)local_rows * width, width, MPI_UINT8_T, next_rank, 1, comm, &requests[1]);
-    // send current rank top row to previous rank bottom halo (tag 1)
-    MPI_Isend(grid, width, MPI_UINT8_T, previous_rank, 1, comm, &requests[2]);
-    // send current rank bottom row to next rank top halo (tag 0)
-    MPI_Isend(grid + (size_t)(local_rows - 1) * width, width, MPI_UINT8_T, next_rank, 0, comm, &requests[3]);
-
-    MPI_Waitall(4, requests, MPI_STATUSES_IGNORE); // wait for all halo exchanges to complete
-}
-
 static void update_white_serial(const uint8_t *grid, uint8_t *next_grid, int width, int height)
 {
     for (int row = 0; row < height; row++) {
@@ -126,13 +107,17 @@ void evolve_wb_parallel(uint8_t *grid, uint8_t *next_grid, int width, int height
     int first_global_row = rank * base_rows + (rank < remainder ? rank : remainder);
 
     // exchange the old halo before updating white cells
-    exchange_halos(grid, width, local_rows, rank, size, comm);
+    exchange_halos_parallel(grid, width, local_rows, rank, size, comm);
+
     // update white cells using the original grid
     update_white_parallel(grid, next_grid, width, local_rows, first_global_row);
+
     // exchange the updated white boundary
-    exchange_halos(next_grid, width, local_rows, rank, size, comm);
+    exchange_halos_parallel(next_grid, width, local_rows, rank, size, comm);
+
     // update black cells using the new white cells
     update_black_parallel(next_grid, grid, width, local_rows, first_global_row);
+
     // copy the new white cells into the final grid
     copy_white_parallel(next_grid, grid, width, local_rows, first_global_row);
 }

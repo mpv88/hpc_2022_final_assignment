@@ -5,6 +5,7 @@
 #ifndef GOL_EVOLUTION_COMMON_H
 #define GOL_EVOLUTION_COMMON_H
 
+#include <mpi.h>
 #include <stdint.h>
 
 /// \brief Counts the live neighbors of a cell using periodic boundary conditions.
@@ -29,5 +30,14 @@ int count_live_neighbors_parallel(const uint8_t *grid, int row, int column, int 
 /// \param live_neighbors number of live neighboring cells.
 /// \return 1 if the cell is alive in the next state, 0 otherwise.
 uint8_t next_cell_state(uint8_t current_state, int live_neighbors);
+
+/// \brief Exchanges top and bottom halo rows of a distributed grid between neighboring MPI ranks.
+/// \param grid pointer to the local grid portion including one halo row before and after the real rows.
+/// \param width width of the grid in cells.
+/// \param local_rows number of real rows owned by this rank (excluding halos).
+/// \param rank MPI rank of the current process.
+/// \param size total number of MPI processes.
+/// \param comm MPI communicator used for the exchange.
+void exchange_halos_parallel(uint8_t *grid, int width, int local_rows, int rank, int size, MPI_Comm comm);
 
 #endif
