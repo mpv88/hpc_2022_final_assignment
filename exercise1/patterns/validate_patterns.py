@@ -5,6 +5,7 @@ import hashlib
 import re
 import sys
 
+
 # config
 GRID_WIDTH = 100
 GRID_HEIGHT = 100
@@ -19,7 +20,11 @@ def parse_rle(filename):
     '''read a golly conway life rle file and return live-cell coordinates'''
     text = filename.read_text()
     position_match = re.search(r'#CXRLE\s+Pos=(-?\d+),(-?\d+)', text)
-    position_x, position_y = (int(position_match.group(1)), int(position_match.group(2))) if position_match else (0, 0)
+    position_x, position_y = (
+        (int(position_match.group(1)), int(position_match.group(2)))
+        if position_match
+        else (0, 0)
+    )
     header_match = re.search(r'x\s*=\s*(\d+)\s*,\s*y\s*=\s*(\d+).*?\n', text)
 
     if not header_match:
@@ -29,7 +34,7 @@ def parse_rle(filename):
     body = '\n'.join(line for line in body.splitlines() if not line.startswith('#'))
 
     if '!' not in body:
-        raise ValueError(f'no \'!\' terminator found in {filename}')
+        raise ValueError(f"no '!' terminator found in {filename}")
 
     body = body[:body.index('!')]
     live_cells = []
@@ -45,7 +50,10 @@ def parse_rle(filename):
         run_count = ''
 
         if character == 'o':
-            live_cells.extend((position_x + x + i, position_y + y) for i in range(count))
+            live_cells.extend(
+                (position_x + x + i, position_y + y)
+                for i in range(count)
+            )
             x += count
         elif character == 'b':
             x += count
@@ -53,7 +61,9 @@ def parse_rle(filename):
             y += count
             x = 0
         elif character not in ' \t\r\n':
-            raise ValueError(f'unexpected rle character {character!r} in {filename}')
+            raise ValueError(
+                f'unexpected rle character {character!r} in {filename}'
+            )
 
     return live_cells
 
@@ -64,9 +74,13 @@ def parse_pgm(filename):
 
     # minimal P5 parser
     idx = 0
+
     def skip_whitespace():
         nonlocal idx
-        while idx < len(data) and data[idx:idx+1] in (b' ', b'\t', b'\n', b'\r'):
+        while (
+            idx < len(data)
+            and data[idx:idx + 1] in (b' ', b'\t', b'\n', b'\r')
+        ):
             idx += 1
 
     def read_token():
@@ -74,26 +88,36 @@ def parse_pgm(filename):
         skip_whitespace()
         if idx >= len(data):
             return None
-        if data[idx:idx+1] == b'#':
-            while idx < len(data) and data[idx:idx+1] != b'\n':
+        if data[idx:idx + 1] == b'#':
+            while idx < len(data) and data[idx:idx + 1] != b'\n':
                 idx += 1
             return read_token()
         token = b''
-        while idx < len(data) and data[idx:idx+1] not in (b' ', b'\t', b'\n', b'\r'):
-            token += data[idx:idx+1]
+        while (
+            idx < len(data)
+            and data[idx:idx + 1] not in (b' ', b'\t', b'\n', b'\r')
+        ):
+            token += data[idx:idx + 1]
             idx += 1
         return token.decode('ascii')
 
     magic = read_token()
     if magic != 'P5':
-        raise ValueError(f'{filename} is not a binary PGM (expected P5, got {magic!r})')
+        raise ValueError(
+            f'{filename} is not a binary PGM '
+            f'(expected P5, got {magic!r})'
+        )
 
     width = int(read_token())
     height = int(read_token())
     maxval = int(read_token())
 
-    if width != GRID_WIDTH or height != GRID_HEIGHT:
-        raise ValueError(f'{filename} size {width}x{height} does not match expected {GRID_WIDTH}x{GRID_HEIGHT}')
+    # allow any positive dimensions instead of forcing 100x100
+    if width <= 0 or height <= 0:
+        raise ValueError(f'{filename} has invalid size {width}x{height}')
+
+    if maxval <= 0 or maxval > 255:
+        raise ValueError(f'{filename} has unsupported maxval {maxval}; ''only 8-bit PGM files are supported')
 
     # pixel data starts now
     pixels = data[idx:]
@@ -105,8 +129,8 @@ def parse_pgm(filename):
         for px in range(width):
             val = pixels[py * width + px]
             if val == 255:
-                grid_x = px - GRID_WIDTH // 2
-                grid_y = py - GRID_HEIGHT // 2
+                grid_x = px - width // 2
+                grid_y = py - height // 2
                 live_cells.append((grid_x, grid_y))
 
     return live_cells
@@ -115,7 +139,11 @@ def parse_pgm(filename):
 def write_rle(filename, live_cells, pos_x=0, pos_y=0):
     '''write live-cell coordinates to a Golly-style .rle file'''
     if not live_cells:
-        content = f'#CXRLE Pos={pos_x},{pos_y}\nx = 0, y = 0, rule = B3/S23\n!\n'
+        content = (
+            f'#CXRLE Pos={pos_x},{pos_y}\n'
+            'x = 0, y = 0, rule = B3/S23\n'
+            '!\n'
+        )
         filename.write_text(content)
         return
 
@@ -139,26 +167,33 @@ def write_rle(filename, live_cells, pos_x=0, pos_y=0):
                 b_count += 1
                 x += 1
             if b_count:
-                lines.append(f"{b_count}b" if b_count > 1 else "b")
+                lines.append(
+                    f'{b_count}b' if b_count > 1 else 'b'
+                )
 
             o_count = 0
             while x <= max_x and row[x]:
                 o_count += 1
                 x += 1
             if o_count:
-                lines.append(f"{o_count}o" if o_count > 1 else "o")
+                lines.append(
+                    f'{o_count}o' if o_count > 1 else 'o'
+                )
 
-        lines.append("$")
+        lines.append('$')
 
-    if lines and lines[-1] == "$":
+    if lines and lines[-1] == '$':
         lines.pop()
-    body = "".join(lines) + "!"
+    body = ''.join(lines) + '!'
 
     width = max_x + 1
     height = max_y + 1
-    header = f"#CXRLE Pos={pos_x},{pos_y}\nx = {width}, y = {height}, rule = B3/S23\n"
+    header = (
+        f'#CXRLE Pos={pos_x},{pos_y}\n'
+        f'x = {width}, y = {height}, rule = B3/S23\n'
+    )
 
-    filename.write_text(header + body + "\n")
+    filename.write_text(header + body + '\n')
 
 
 def convert_rle_files():
@@ -182,12 +217,24 @@ def convert_rle_files():
             pixel_x = x + GRID_WIDTH // 2
             pixel_y = y + GRID_HEIGHT // 2
 
-            if not (0 <= pixel_x < GRID_WIDTH and 0 <= pixel_y < GRID_HEIGHT):
-                raise ValueError(f'live cell ({x},{y}) lies outside the {GRID_WIDTH}x{GRID_HEIGHT} grid')
+            if not (
+                0 <= pixel_x < GRID_WIDTH
+                and 0 <= pixel_y < GRID_HEIGHT
+            ):
+                raise ValueError(
+                    f'live cell ({x},{y}) lies outside '
+                    f'the {GRID_WIDTH}x{GRID_HEIGHT} grid'
+                )
 
             image[pixel_y * GRID_WIDTH + pixel_x] = 255
 
-        header = f'P5\n# generated by gol\n{GRID_WIDTH} {GRID_HEIGHT}\n{MAXVAL}\n'.encode('ascii')
+        header = (
+            f'P5\n'
+            f'# generated by gol\n'
+            f'{GRID_WIDTH} {GRID_HEIGHT}\n'
+            f'{MAXVAL}\n'
+        ).encode('ascii')
+
         pgm_file = PGM_DIR / f'{rle_file.stem}.pgm'
         pgm_file.write_bytes(header + image)
 
@@ -266,8 +313,6 @@ def check_output_files():
 
     print(f'\nsuccess: all {len(pgm_files)} files match')
 
-
-if __name__ == "__main__":
-    check_output_files()
-    #convert_pgm_files()
-    #convert_rle_files()
+if __name__ == '__main__':
+    convert_rle_files()
+    check_output_files() #convert_pgm_files()

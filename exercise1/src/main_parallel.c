@@ -50,18 +50,15 @@ int main(int argc, char **argv)
     double evolution_time = 0.0;
 
     // initialize MPI
-    MPI_Init(&argc, &argv);
-    /*
-    int provided;
-    MPI_Init_thread(&argc, &argv,
-                    MPI_THREAD_FUNNELED,
-                    &provided);
+    int mpi_provided_thread_level;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &mpi_provided_thread_level);
 
-    if (provided < MPI_THREAD_FUNNELED) {
-        fprintf(stderr, "MPI implementation does not provide MPI_THREAD_FUNNELED\n");
-        MPI_Abort(MPI_COMM_WORLD, 1);
+    if (mpi_provided_thread_level < MPI_THREAD_FUNNELED ) {
+        printf("A problem arose when requesting MPI_THREAD_FUNNELED support\n");
+        MPI_Finalize();
+        exit( 1 );
     }
-    */
+
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
