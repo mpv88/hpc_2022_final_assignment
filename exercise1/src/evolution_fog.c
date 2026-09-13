@@ -198,7 +198,7 @@ void apply_fog_parallel(uint8_t *grid, int width, int height, int local_rows, in
     if (rank == 0 && owner != 0) {
         MPI_Recv(spread, 18, MPI_INT, owner, 0, comm, MPI_STATUS_IGNORE); // rank 0 receives spread buffer
 
-        if (event_alive && required_neighbors > 0) {
+        if (event_alive && spread[0] > 0) {
             shuffle_neighbors(&spread[2], &spread[10], spread[1]); // randomize dead cells to revive
         }
     }

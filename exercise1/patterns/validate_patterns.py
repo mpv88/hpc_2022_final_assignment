@@ -268,6 +268,6 @@ def check_output_files():
 
 
 if __name__ == "__main__":
-    convert_pgm_files()
+    check_output_files()
+    #convert_pgm_files()
     #convert_rle_files()
-    #check_output_files()

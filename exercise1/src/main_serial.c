@@ -116,7 +116,7 @@ int main(int argc, char **argv)
         }
 
         if (args.evolution == WAVE)
-            srand(INITIALIZATION_SEED);
+            wave_seed(WAVE_SEED);
 
         if (args.fog_enabled)
             fog_seed(FOG_SEED);
