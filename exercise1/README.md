@@ -19,7 +19,6 @@ exercise1/
 ├── CMakeLists.txt
 ├── Makefile
 ├── README.md
-├── Report.pdf
 ├── doxygen/        # documentation
 ├── figs/           # plots for the experiments
 ├── include/        # header files
