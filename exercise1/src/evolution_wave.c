@@ -80,6 +80,8 @@ void evolve_wave_parallel(uint8_t *grid, uint8_t *next_grid, int width, int heig
             }
         }
 
+        MPI_Barrier(comm); // wait until all ranks complete the current wavefront
+
         // apply the computed local wavefront from next_grid back into grid
 #pragma omp parallel for schedule(static)
         for (int local_row = 0; local_row < local_rows; local_row++) {
@@ -94,10 +96,11 @@ void evolve_wave_parallel(uint8_t *grid, uint8_t *next_grid, int width, int heig
             }
         }
 
-        // exchange updated boundary rows for the next wavefront
-        exchange_halos_parallel(grid, width, local_rows, rank, size, comm);
+        if (distance < max_distance) {
+            // exchange updated boundary rows for the next wavefront
+            exchange_halos_parallel(grid, width, local_rows, rank, size, comm);
 
-        // wait until all ranks complete the current wavefront
-        MPI_Barrier(comm);
+            MPI_Barrier(comm); // wait until all ranks complete the current wavefront
+        }
     }
 }

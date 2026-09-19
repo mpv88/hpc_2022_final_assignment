@@ -60,8 +60,8 @@ make
 Using CMake:
 
 ```bash
-cmake -S . -B build
-cmake --build build
+cmake -S . -B cmake-build-gol
+cmake --build cmake-build-gol -j
 ```
 
 MPI must be available when compiling the parallel version.
