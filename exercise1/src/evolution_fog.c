@@ -65,6 +65,8 @@ static void collect_dead_neighbors_parallel(const uint8_t *grid, int row, int co
 { // collect number and coordinates of all dead 8-neighbors
     *count = 0; // init count of dead neighbors
 
+    int local_row = row - start_row; // calculate current row relative to local grid
+
     for (int row_offset = -1; row_offset <= 1; row_offset++) { // scan 3 rows around current
         for (int column_offset = -1; column_offset <= 1; column_offset++) { // scan 3 cols around current
             if (row_offset == 0 && column_offset == 0) // skip current cell
@@ -72,14 +74,14 @@ static void collect_dead_neighbors_parallel(const uint8_t *grid, int row, int co
 
             int neighbor_row = wrap_index(row + row_offset, height); // wrapped neighbour row
             int neighbor_column = wrap_index(column + column_offset, width); // wrapped neighbour col
-            int local_neighbor_row = neighbor_row - start_row;
+            int local_neighbor_row = local_row + row_offset; // calculate neighbour row relative to local grid
 
             if (local_neighbor_row >= -1 && local_neighbor_row <= local_rows &&
                 grid[local_neighbor_row * width + neighbor_column] == 0) { // if neighbor is dead (0)
                 rows[*count] = neighbor_row; // store its global row
                 columns[*count] = neighbor_column; // store its global col
                 (*count)++;
-            }
+                }
         }
     }
 }
