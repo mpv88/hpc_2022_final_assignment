@@ -1,0 +1,71 @@
+# compiler
+CC ?= gcc
+
+# source file
+GEMM_SRC = gemm.c
+
+# compiler flags
+CFLAGS = -m64 -O3 -march=native
+
+# output directory
+BUILD_DIR = build
+
+# HPC library installation paths
+MKLROOT ?= ${MKLROOT}
+OPENBLASROOT ?= ${OPENBLAS_ROOT}
+BLISROOT ?= /u/area/cozzini/myblis
+
+# executable targets
+MKL_DOUBLE = $(BUILD_DIR)/gemm_mkl_double.x
+MKL_FLOAT = $(BUILD_DIR)/gemm_mkl_float.x
+OPENBLAS_DOUBLE = $(BUILD_DIR)/gemm_openblas_double.x
+OPENBLAS_FLOAT = $(BUILD_DIR)/gemm_openblas_float.x
+BLIS_DOUBLE = $(BUILD_DIR)/gemm_blis_double.x
+BLIS_FLOAT = $(BUILD_DIR)/gemm_blis_float.x
+
+# MKL libraries
+MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
+
+# OpenBLAS libraries
+OPENBLAS_LIBS = -L$(OPENBLASROOT)/lib -lopenblas -lpthread -fopenmp
+
+# BLIS libraries
+BLIS_LIBS = -L$(BLISROOT)/lib -lblis -lpthread -fopenmp -lm
+
+# group targets
+.PHONY: all mkl openblas blis clean
+all: mkl openblas blis
+mkl: $(MKL_DOUBLE) $(MKL_FLOAT)
+openblas: $(OPENBLAS_DOUBLE) $(OPENBLAS_FLOAT)
+blis: $(BLIS_DOUBLE) $(BLIS_FLOAT)
+
+# MKL: double and single precision executables
+$(MKL_DOUBLE): $(GEMM_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -DUSE_DOUBLE -DMKL $^ -I$(MKLROOT)/include $(MKL_LIBS) -o $@
+
+$(MKL_FLOAT): $(GEMM_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -DUSE_FLOAT -DMKL $^ -I$(MKLROOT)/include $(MKL_LIBS) -o $@
+
+# OpenBLAS: double and single precision executables
+$(OPENBLAS_DOUBLE): $(GEMM_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -DUSE_DOUBLE -DOPENBLAS $^ -I$(OPENBLASROOT)/include $(OPENBLAS_LIBS) -o $@
+
+$(OPENBLAS_FLOAT): $(GEMM_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -DUSE_FLOAT -DOPENBLAS $^ -I$(OPENBLASROOT)/include $(OPENBLAS_LIBS) -o $@
+
+# BLIS: double and single precision executables
+$(BLIS_DOUBLE): $(GEMM_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -DUSE_DOUBLE -DBLIS $^ -I$(BLISROOT)/include $(BLIS_LIBS) -o $@
+
+$(BLIS_FLOAT): $(GEMM_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -DUSE_FLOAT -DBLIS $^ -I$(BLISROOT)/include $(BLIS_LIBS) -o $@
+
+# clean target
+clean:
+	rm -rf $(BUILD_DIR)
