@@ -24,7 +24,7 @@ BLIS_DOUBLE = $(BUILD_DIR)/gemm_blis_double.x
 BLIS_FLOAT = $(BUILD_DIR)/gemm_blis_float.x
 
 # MKL libraries
-MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
+MKL_LIBS = -L$(MKLROOT)/lib/intel64 -Wl,-rpath,$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 
 # OpenBLAS libraries
 OPENBLAS_LIBS = -L$(OPENBLASROOT)/lib/x86_64-linux-gnu -lopenblas -lpthread -fopenmp
