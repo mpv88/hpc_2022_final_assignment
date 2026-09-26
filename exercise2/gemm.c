@@ -105,8 +105,7 @@ int main(int argc, char** argv)
     struct timespec elapsed_time = diff(begin, end);
     double elapsed = (double)elapsed_time.tv_sec + (double)elapsed_time.tv_nsec / 1000000000.0;
 
-    double gflops = 2.0 * m * n * k;
-    gflops = gflops / elapsed * 1000000000;
+    double gflops = 2.0 * m * n * k / elapsed * 1e-9;
     printf("%d,%d,%d,%.9f,%.6f\n", m, n, k, elapsed, gflops);
 
 
