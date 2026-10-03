@@ -8,15 +8,22 @@
 #SBATCH --time=06:00:00
 #SBATCH --output=gemm_core_%j.out
 
-# architecture
+# architecture, size and affinity
 ARCHITECTURE=$1
+SIZE=$2
+AFFINITY=$3
 
 if [[ "$ARCHITECTURE" == "EPYC" ]]; then
     MAX_CORES=64
 elif [[ "$ARCHITECTURE" == "THIN" ]]; then
     MAX_CORES=12
 else
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN"
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN SIZE spread|close"
+    exit 1
+fi
+
+if [[ "$AFFINITY" != "spread" && "$AFFINITY" != "close" ]]; then
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN SIZE spread|close"
     exit 1
 fi
 
@@ -31,13 +38,12 @@ module load openBLAS/0.3.29-omp
 
 # thread config
 export OMP_PLACES=cores
-export OMP_PROC_BIND=spread
+export OMP_PROC_BIND="$AFFINITY"
 
 # BLIS library path
 export LD_LIBRARY_PATH="$HOME/myblis/${ARCHITECTURE,,}/lib:$LD_LIBRARY_PATH"
 
 # set parameters
-SIZE=10000
 REPETITIONS=10
 
 # libs and corresponding executables
@@ -48,7 +54,7 @@ PRECISIONS=("float" "double")
 NOW=$(date +"%Y-%m-%d_%H-%M-%S")
 HOST=$(hostname)
 OUTPUT_DIR="results"
-CSV_FILE="$OUTPUT_DIR/gemm_core_${ARCHITECTURE}_${NOW}.csv"
+CSV_FILE="$OUTPUT_DIR/gemm_core_${ARCHITECTURE}_${SIZE}_${AFFINITY}_${NOW}.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -60,6 +66,7 @@ echo "architecture: $ARCHITECTURE"
 echo "host: $HOST"
 echo "matrix size: $SIZE"
 echo "maximum cores: $MAX_CORES"
+echo "affinity: $AFFINITY"
 echo "repetitions: $REPETITIONS"
 
 for PRECISION in "${PRECISIONS[@]}"; do

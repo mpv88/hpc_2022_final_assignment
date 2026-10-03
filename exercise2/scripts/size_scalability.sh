@@ -8,15 +8,21 @@
 #SBATCH --time=06:00:00
 #SBATCH --output=gemm_size_%j.out
 
-# architecture
+# architecture and affinity
 ARCHITECTURE=$1
+AFFINITY=$2
 
 if [[ "$ARCHITECTURE" == "EPYC" ]]; then
     CORES=64
 elif [[ "$ARCHITECTURE" == "THIN" ]]; then
     CORES=12
 else
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN"
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN spread|close"
+    exit 1
+fi
+
+if [[ "$AFFINITY" != "spread" && "$AFFINITY" != "close" ]]; then
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN spread|close"
     exit 1
 fi
 
@@ -31,7 +37,7 @@ module load openBLAS/0.3.29-omp
 
 # thread config
 export OMP_PLACES=cores
-export OMP_PROC_BIND=spread
+export OMP_PROC_BIND="$AFFINITY"
 export OMP_NUM_THREADS=$CORES
 export BLIS_NUM_THREADS=$CORES
 
@@ -52,7 +58,7 @@ PRECISIONS=("float" "double")
 NOW=$(date +"%Y-%m-%d_%H-%M-%S")
 HOST=$(hostname)
 OUTPUT_DIR="results"
-CSV_FILE="$OUTPUT_DIR/gemm_size_${ARCHITECTURE}_${NOW}.csv"
+CSV_FILE="$OUTPUT_DIR/gemm_size_${ARCHITECTURE}_${AFFINITY}_${NOW}.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -63,6 +69,7 @@ echo "start matrix-size scalability"
 echo "architecture: $ARCHITECTURE"
 echo "host: $HOST"
 echo "cores: $CORES"
+echo "affinity: $AFFINITY"
 echo "repetitions: $REPETITIONS"
 echo "matrix sizes: $SIZE_START-$SIZE_END"
 
