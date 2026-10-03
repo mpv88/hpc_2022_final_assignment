@@ -5,7 +5,7 @@
 #SBATCH --chdir=/u/dssc/mpivid00/hpc_2022_final_assignment/exercise2
 #SBATCH --nodes=1
 #SBATCH --exclusive
-#SBATCH --time=02:00:00
+#SBATCH --time=06:00:00
 #SBATCH --output=gemm_size_%j.out
 
 # architecture
