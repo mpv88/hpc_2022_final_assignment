@@ -13,7 +13,19 @@ BUILD_DIR = build
 # HPC library installation paths
 MKLROOT ?= ${MKLROOT}
 OPENBLASROOT ?= ${OPENBLAS_ROOT}
-BLISROOT ?= /u/area/cozzini/myblis
+
+# BLIS architecture
+ifndef ARCH
+$(error ARCH is not set. Use 'make ARCH=thin' or 'make ARCH=epyc')
+endif
+
+ifeq ($(ARCH),thin)
+BLISROOT = $(HOME)/myblis/thin
+else ifeq ($(ARCH),epyc)
+BLISROOT = $(HOME)/myblis/epyc
+else
+$(error Invalid ARCH='$(ARCH)'. Use 'thin' or 'epyc')
+endif
 
 # executable targets
 MKL_DOUBLE = $(BUILD_DIR)/gemm_mkl_double.x
@@ -24,7 +36,7 @@ BLIS_DOUBLE = $(BUILD_DIR)/gemm_blis_double.x
 BLIS_FLOAT = $(BUILD_DIR)/gemm_blis_float.x
 
 # MKL libraries
-MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
+MKL_LIBS = -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 
 # OpenBLAS libraries
 OPENBLAS_LIBS = -L$(OPENBLASROOT)/lib -lopenblas -lpthread -fopenmp

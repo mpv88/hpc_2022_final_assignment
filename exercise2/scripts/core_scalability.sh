@@ -2,7 +2,7 @@
 #SBATCH --no-requeue
 #SBATCH --job-name=gemm_core
 #SBATCH --get-user-env
-#SBATCH --chdir=TODO: add my path
+#SBATCH --chdir=/u/dssc/mpivid00/assignment/exercise2
 #SBATCH --nodes=1
 #SBATCH --exclusive
 #SBATCH --time=02:00:00
@@ -16,7 +16,7 @@ if [[ "$ARCHITECTURE" == "EPYC" ]]; then
 elif [[ "$ARCHITECTURE" == "THIN" ]]; then
     MAX_CORES=12
 else
-    echo "usage: sbatch --partition=PARTITION --ntasks-per-node=CORES core_scalability.sh EPYC|THIN"
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN"
     exit 1
 fi
 
@@ -24,18 +24,20 @@ fi
 BUILD_DIR="build"
 
 # modules
-module load mkl
-module load openBLAS/0.3.23-omp
+module load tbb
+module load compiler-rt
+module load mkl/2025.3
+module load openBLAS/0.3.29-omp
 
 # thread config
 export OMP_PLACES=cores
 export OMP_PROC_BIND=spread
 
 # BLIS library path
-export LD_LIBRARY_PATH=TODO: add my path
+export LD_LIBRARY_PATH="$HOME/myblis/${ARCHITECTURE,,}/lib:$LD_LIBRARY_PATH"
 
 # set parameters
-SIZE=TODO: choose intermediate matrix size
+SIZES=(10000 20000)
 REPETITIONS=10
 
 # libs and corresponding executables
@@ -50,7 +52,7 @@ CSV_FILE="$OUTPUT_DIR/gemm_core_${ARCHITECTURE}_${NOW}.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
-echo "library,precision,node,m,k,n,cores,threads,affinity,repetition,time_s,gflops" > "$CSV_FILE"
+echo "library,precision,architecture,node,m,k,n,cores,threads,affinity,repetition,time_s,gflops" > "$CSV_FILE"
 
 # run experiment
 echo "start core scalability"
@@ -69,7 +71,7 @@ for PRECISION in "${PRECISIONS[@]}"; do
                 EXECUTABLE="$BUILD_DIR/gemm_${LIBRARY}_${PRECISION}.x"
                 RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
                 IFS=',' read -r M K N TIME GFLOPS <<< "$RESULT"
-                echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
+                echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
             done
         done
     done

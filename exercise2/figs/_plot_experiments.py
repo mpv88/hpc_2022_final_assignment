@@ -1,6 +1,5 @@
 import os
 import glob
-from platform import node
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -47,7 +46,10 @@ def classify_experiment(filename):
 
 
 def calculate_statistics(data):
-    group_columns = ['experiment','library','precision','node','m','k','n','cores','threads','affinity']
+    group_columns = [
+        'experiment', 'library', 'precision', 'architecture', 'node',
+        'm', 'k', 'n', 'cores', 'threads', 'affinity'
+    ]
 
     statistics = (data.groupby(group_columns, as_index=False).agg(
         mean_gflops=('gflops', 'mean'),
@@ -55,20 +57,20 @@ def calculate_statistics(data):
         mean_time_s=('time_s', 'mean'),
         std_time_s=('time_s', 'std'),
         repetitions=('gflops', 'count')
-        )
-    )
+    ))
+
     return statistics
 
 
-def calculate_tpp(node, precision, cores):
-    return TPP_PER_CORE[node][precision] * cores
+def calculate_tpp(architecture, precision, cores):
+    return TPP_PER_CORE[architecture][precision] * cores
 
 
 def plot_size_scalability(data, output_dir):
     size_data = data[data['experiment'] == 'size']
 
-    for (node, precision, affinity), group in size_data.groupby(
-            ['node', 'precision', 'affinity']):
+    for (architecture, node, precision, affinity), group in size_data.groupby(
+            ['architecture', 'node', 'precision', 'affinity']):
 
         cores = group['cores'].iloc[0]
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -85,18 +87,23 @@ def plot_size_scalability(data, output_dir):
                 label=library.upper()
             )
 
-        if node in TPP_PER_CORE:
-            tpp = calculate_tpp(node, precision, cores)
+        if architecture in TPP_PER_CORE:
+            tpp = calculate_tpp(architecture, precision, cores)
             ax.axhline(tpp, linestyle='--', label=f'TPP ({tpp:.1f} GFLOPS)')
 
         ax.set_xlabel('Matrix size (M = N = K)')
         ax.set_ylabel('Performance (GFLOPS)')
-        ax.set_title(f'GEMM Matrix-Size Scalability: {node} - {precision.upper()} - {affinity} - {cores} Cores')
+        ax.set_title(
+            f'GEMM Matrix-Size Scalability: {architecture} - '
+            f'{precision.upper()} - {affinity} - {cores} Cores'
+        )
         ax.legend()
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
 
-        filename = (f'size_{node}_{precision}_{affinity}_{cores}cores.png')
+        filename = (
+            f'size_{architecture}_{precision}_{affinity}_{cores}cores.png'
+        )
         fig.savefig(os.path.join(output_dir, filename), dpi=300)
         plt.close(fig)
 
@@ -104,7 +111,9 @@ def plot_size_scalability(data, output_dir):
 def plot_core_scalability(data, output_dir):
     core_data = data[data['experiment'] == 'core']
 
-    for (node, precision, m, k, n, affinity), group in core_data.groupby(['node', 'precision', 'm', 'k', 'n', 'affinity']):
+    for (architecture, node, precision, m, k, n, affinity), group in core_data.groupby(
+            ['architecture', 'node', 'precision', 'm', 'k', 'n', 'affinity']):
+
         fig, ax = plt.subplots(figsize=(8, 5))
 
         for library, library_data in group.groupby('library'):
@@ -119,19 +128,24 @@ def plot_core_scalability(data, output_dir):
                 label=library.upper()
             )
 
-        if node in TPP_PER_CORE:
+        if architecture in TPP_PER_CORE:
             cores = group['cores'].sort_values().unique()
-            tpp = calculate_tpp(node, precision, cores)
+            tpp = calculate_tpp(architecture, precision, cores)
             ax.plot(cores, tpp, linestyle='--', label='TPP')
 
         ax.set_xlabel('Number of cores')
         ax.set_ylabel('Performance (GFLOPS)')
-        ax.set_title(f'GEMM Core Scalability: {node} - {precision.upper()} - {affinity} - M=N=K={int(m)}')
+        ax.set_title(
+            f'GEMM Core Scalability: {architecture} - '
+            f'{precision.upper()} - {affinity} - M=N=K={int(m)}'
+        )
         ax.legend()
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
 
-        filename = (f'core_{node}_{precision}_{affinity}_{int(m)}.png')
+        filename = (
+            f'core_{architecture}_{precision}_{affinity}_{int(m)}.png'
+        )
         fig.savefig(os.path.join(output_dir, filename), dpi=300)
         plt.close(fig)
 
@@ -139,7 +153,9 @@ def plot_core_scalability(data, output_dir):
 def plot_size_affinity_comparison(data, output_dir):
     size_data = data[data['experiment'] == 'size']
 
-    for (node, precision), group in size_data.groupby(['node', 'precision']):
+    for (architecture, node, precision), group in size_data.groupby(
+            ['architecture', 'node', 'precision']):
+
         affinities = group['affinity'].unique()
 
         if len(affinities) < 2:
@@ -162,19 +178,24 @@ def plot_size_affinity_comparison(data, output_dir):
                 label=f'{library.upper()} — {affinity}'
             )
 
-        if node in TPP_PER_CORE:
-            tpp = calculate_tpp(node, precision, cores)
+        if architecture in TPP_PER_CORE:
+            tpp = calculate_tpp(architecture, precision, cores)
             ax.axhline(tpp, linestyle='--', label=f'TPP ({tpp:.1f} GFLOPS)')
 
         ax.set_xlabel('Matrix size (M = K = N)')
         ax.set_ylabel('Performance (GFLOPS)')
-        ax.set_title(f'GEMM Matrix-Size Scalability: {node} - {precision.upper()} - Affinity Comparison - {cores} Cores')
+        ax.set_title(
+            f'GEMM Matrix-Size Scalability: {architecture} - '
+            f'{precision.upper()} - Affinity Comparison - {cores} Cores'
+        )
         ax.legend()
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
 
         affinity_label = '_vs_'.join(sorted(affinities))
-        filename = (f'size_{node}_{precision}_{affinity_label}_{cores}cores.png')
+        filename = (
+            f'size_{architecture}_{precision}_{affinity_label}_{cores}cores.png'
+        )
         fig.savefig(os.path.join(output_dir, filename), dpi=300)
         plt.close(fig)
 
@@ -182,7 +203,9 @@ def plot_size_affinity_comparison(data, output_dir):
 def plot_core_affinity_comparison(data, output_dir):
     core_data = data[data['experiment'] == 'core']
 
-    for (node, precision, m, k, n), group in core_data.groupby(['node', 'precision', 'm', 'k', 'n']):
+    for (architecture, node, precision, m, k, n), group in core_data.groupby(
+            ['architecture', 'node', 'precision', 'm', 'k', 'n']):
+
         affinities = group['affinity'].unique()
 
         if len(affinities) < 2:
@@ -190,7 +213,9 @@ def plot_core_affinity_comparison(data, output_dir):
 
         fig, ax = plt.subplots(figsize=(8, 5))
 
-        for (library, affinity), library_data in group.groupby(['library', 'affinity']):
+        for (library, affinity), library_data in group.groupby(
+                ['library', 'affinity']):
+
             library_data = library_data.sort_values('cores')
 
             ax.errorbar(
@@ -202,20 +227,30 @@ def plot_core_affinity_comparison(data, output_dir):
                 label=f'{library.upper()} — {affinity}'
             )
 
-        if node in TPP_PER_CORE:
+        if architecture in TPP_PER_CORE:
             cores = group['cores'].sort_values().unique()
-            tpp = calculate_tpp(node, precision, cores)
-            ax.plot(cores, tpp, linestyle='--', label=f'TPP ({TPP_PER_CORE[node][precision]:.1f} GFLOPS/core)')
+            tpp = calculate_tpp(architecture, precision, cores)
+            ax.plot(
+                cores,
+                tpp,
+                linestyle='--',
+                label=f'TPP ({TPP_PER_CORE[architecture][precision]:.1f} GFLOPS/core)'
+            )
 
         ax.set_xlabel('Number of cores')
         ax.set_ylabel('Performance (GFLOPS)')
-        ax.set_title(f'GEMM Core Scalability: {node} - {precision.upper()} - Affinity Comparison - M=N=K={int(m)}')
+        ax.set_title(
+            f'GEMM Core Scalability: {architecture} - '
+            f'{precision.upper()} - Affinity Comparison - M=N=K={int(m)}'
+        )
         ax.legend()
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
 
         affinity_label = '_vs_'.join(sorted(affinities))
-        filename = (f'core_{node}_{precision}_{affinity_label}_{int(m)}.png')
+        filename = (
+            f'core_{architecture}_{precision}_{affinity_label}_{int(m)}.png'
+        )
         fig.savefig(os.path.join(output_dir, filename), dpi=300)
         plt.close(fig)
 
@@ -223,7 +258,9 @@ def plot_core_affinity_comparison(data, output_dir):
 def plot_core_speedup(data, output_dir):
     core_data = data[data['experiment'] == 'core']
 
-    for (node, precision, m, k, n, affinity), group in core_data.groupby(['node', 'precision', 'm', 'k', 'n', 'affinity']):
+    for (architecture, node, precision, m, k, n, affinity), group in core_data.groupby(
+            ['architecture', 'node', 'precision', 'm', 'k', 'n', 'affinity']):
+
         fig, ax = plt.subplots(figsize=(8, 5))
 
         for library, library_data in group.groupby('library'):
@@ -232,10 +269,16 @@ def plot_core_speedup(data, output_dir):
 
             if baseline.empty:
                 continue
+
             baseline_time = baseline['mean_time_s'].iloc[0]
             baseline_std = baseline['std_time_s'].iloc[0]
             speedup = baseline_time / library_data['mean_time_s']
-            relative_error = ((baseline_std / baseline_time) ** 2 + (library_data['std_time_s'] / library_data['mean_time_s']) ** 2) ** 0.5
+
+            relative_error = (
+                                     (baseline_std / baseline_time) ** 2
+                                     + (library_data['std_time_s'] / library_data['mean_time_s']) ** 2
+                             ) ** 0.5
+
             speedup_std = speedup * relative_error
 
             ax.errorbar(
@@ -252,13 +295,16 @@ def plot_core_speedup(data, output_dir):
         ax.plot(cores, cores, linestyle='--', label='Ideal speedup')
         ax.set_xlabel('Number of cores')
         ax.set_ylabel('Speedup')
-        ax.set_title(f'GEMM Core Scalability: Speedup - {node} - {precision.upper()} - {affinity} - M=N=K={int(m)}')
+        ax.set_title(
+            f'GEMM Core Scalability: Speedup - {architecture} - '
+            f'{precision.upper()} - {affinity} - M=N=K={int(m)}'
+        )
         ax.legend()
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
 
         filename = (
-            f'core_{node}_{precision}_{affinity}_{int(m)}_speedup.png'
+            f'core_{architecture}_{precision}_{affinity}_{int(m)}_speedup.png'
         )
         fig.savefig(os.path.join(output_dir, filename), dpi=300)
         plt.close(fig)

@@ -32,7 +32,7 @@ CSV_FILE="$OUTPUT_DIR/gemm_core_${ARCHITECTURE}_${NOW}.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
-echo "library,precision,node,m,k,n,cores,threads,affinity,repetition,time_s,gflops" > "$CSV_FILE"
+echo "library,precision,architecture,node,m,k,n,cores,threads,affinity,repetition,time_s,gflops" > "$CSV_FILE"
 
 # run experiment
 echo "start local core scalability"
@@ -52,7 +52,7 @@ for SIZE in "${SIZES[@]}"; do
                     EXECUTABLE="$BUILD_DIR/gemm_${LIBRARY}_${PRECISION}.x"
                     RESULT=$("$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
                     IFS=',' read -r M K N TIME GFLOPS <<< "$RESULT"
-                    echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
+                    echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
                 done
             done
         done
