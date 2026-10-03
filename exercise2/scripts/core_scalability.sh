@@ -2,7 +2,7 @@
 #SBATCH --no-requeue
 #SBATCH --job-name=gemm_core
 #SBATCH --get-user-env
-#SBATCH --chdir=/u/dssc/mpivid00/assignment/exercise2
+#SBATCH --chdir=/u/dssc/mpivid00/hpc_2022_final_assignment/exercise2
 #SBATCH --nodes=1
 #SBATCH --exclusive
 #SBATCH --time=02:00:00
