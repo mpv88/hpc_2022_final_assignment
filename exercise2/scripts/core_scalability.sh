@@ -37,7 +37,7 @@ export OMP_PROC_BIND=spread
 export LD_LIBRARY_PATH="$HOME/myblis/${ARCHITECTURE,,}/lib:$LD_LIBRARY_PATH"
 
 # set parameters
-SIZES=(10000 20000)
+SIZE=10000
 REPETITIONS=10
 
 # libs and corresponding executables
