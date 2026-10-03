@@ -5,24 +5,36 @@
 #SBATCH --chdir=/u/dssc/mpivid00/hpc_2022_final_assignment/exercise2
 #SBATCH --nodes=1
 #SBATCH --exclusive
-#SBATCH --time=06:00:00
+#SBATCH --time=02:00:00
 #SBATCH --output=gemm_size_%j.out
 
-# architecture and affinity
+# architecture, precision, library and affinity
 ARCHITECTURE=$1
-AFFINITY=$2
+PRECISION=$2
+LIBRARY=$3
+AFFINITY=$4
 
 if [[ "$ARCHITECTURE" == "EPYC" ]]; then
     CORES=64
 elif [[ "$ARCHITECTURE" == "THIN" ]]; then
     CORES=12
 else
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN spread|close"
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN float|double mkl|openblas|blis spread|close"
+    exit 1
+fi
+
+if [[ "$PRECISION" != "float" && "$PRECISION" != "double" ]]; then
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN float|double mkl|openblas|blis spread|close"
+    exit 1
+fi
+
+if [[ "$LIBRARY" != "mkl" && "$LIBRARY" != "openblas" && "$LIBRARY" != "blis" ]]; then
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN float|double mkl|openblas|blis spread|close"
     exit 1
 fi
 
 if [[ "$AFFINITY" != "spread" && "$AFFINITY" != "close" ]]; then
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN spread|close"
+    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalability.sh EPYC|THIN float|double mkl|openblas|blis spread|close"
     exit 1
 fi
 
@@ -50,15 +62,11 @@ SIZE_START=2000
 SIZE_END=20000
 SIZE_STEP=500
 
-# libs and corresponding executables
-LIBRARIES=("mkl" "openblas" "blis")
-PRECISIONS=("float" "double")
-
 # output
 NOW=$(date +"%Y-%m-%d_%H-%M-%S")
 HOST=$(hostname)
 OUTPUT_DIR="results"
-CSV_FILE="$OUTPUT_DIR/gemm_size_${ARCHITECTURE}_${AFFINITY}_${NOW}.csv"
+CSV_FILE="$OUTPUT_DIR/gemm_size_${ARCHITECTURE}_${PRECISION}_${LIBRARY}_${AFFINITY}_${NOW}.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -67,22 +75,20 @@ echo "library,precision,architecture,node,m,k,n,cores,threads,affinity,repetitio
 # run experiment
 echo "start matrix-size scalability"
 echo "architecture: $ARCHITECTURE"
+echo "precision: $PRECISION"
+echo "library: $LIBRARY"
 echo "host: $HOST"
 echo "cores: $CORES"
 echo "affinity: $AFFINITY"
 echo "repetitions: $REPETITIONS"
 echo "matrix sizes: $SIZE_START-$SIZE_END"
 
-for PRECISION in "${PRECISIONS[@]}"; do
-    for LIBRARY in "${LIBRARIES[@]}"; do
-        for REPETITION in $(seq 1 "$REPETITIONS"); do
-            for SIZE in $(seq "$SIZE_START" "$SIZE_STEP" "$SIZE_END"); do
-                EXECUTABLE="$BUILD_DIR/gemm_${LIBRARY}_${PRECISION}.x"
-                RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
-                IFS=',' read -r M K N TIME GFLOPS <<< "$RESULT"
-                echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
-            done
-        done
+for REPETITION in $(seq 1 "$REPETITIONS"); do
+    for SIZE in $(seq "$SIZE_START" "$SIZE_STEP" "$SIZE_END"); do
+        EXECUTABLE="$BUILD_DIR/gemm_${LIBRARY}_${PRECISION}.x"
+        RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
+        IFS=',' read -r M K N TIME GFLOPS <<< "$RESULT"
+        echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
     done
 done
 
