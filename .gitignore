@@ -84,3 +84,7 @@ build/
 # results & final plots
 /exercise1/figs/*
 /exercise1/results/*.csv
+
+# HPC Slurm job output logs
+/exercise1/job_outputs/
+/exercise2/job_outputs/
