@@ -8,34 +8,64 @@
 #SBATCH --time=02:00:00
 #SBATCH --output=gemm_core_%j.out
 
-# architecture, size, precision, library and affinity
+# architecture, size, precision, library, affinity and optional NUMA policy
 ARCHITECTURE=$1
 SIZE=$2
 PRECISION=$3
 LIBRARY=$4
 AFFINITY=$5
+MEMORY_POLICY=${6:-default}
+NUMA_NODES=${7:-}
+BALANCING=${8:-}
+
+USAGE="usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN SIZE float|double mkl|openblas|blis spread|close [default|interleave|membind] [NUMA_NODES] [--balancing]"
 
 if [[ "$ARCHITECTURE" == "EPYC" ]]; then
     MAX_CORES=64
 elif [[ "$ARCHITECTURE" == "THIN" ]]; then
-    MAX_CORES=12
+    MAX_CORES=24
 else
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN SIZE float|double mkl|openblas|blis spread|close"
+    echo "$USAGE"
     exit 1
 fi
 
 if [[ "$PRECISION" != "float" && "$PRECISION" != "double" ]]; then
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN SIZE float|double mkl|openblas|blis spread|close"
+    echo "$USAGE"
     exit 1
 fi
 
 if [[ "$LIBRARY" != "mkl" && "$LIBRARY" != "openblas" && "$LIBRARY" != "blis" ]]; then
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN SIZE float|double mkl|openblas|blis spread|close"
+    echo "$USAGE"
     exit 1
 fi
 
 if [[ "$AFFINITY" != "spread" && "$AFFINITY" != "close" ]]; then
-    echo "usage: sbatch --partition=PARTITION --cpus-per-task=CORES core_scalability.sh EPYC|THIN SIZE float|double mkl|openblas|blis spread|close"
+    echo "$USAGE"
+    exit 1
+fi
+
+if [[ "$MEMORY_POLICY" != "default" && "$MEMORY_POLICY" != "interleave" && "$MEMORY_POLICY" != "membind" ]]; then
+    echo "$USAGE"
+    exit 1
+fi
+
+if [[ "$MEMORY_POLICY" == "default" && -n "$NUMA_NODES" ]]; then
+    echo "NUMA nodes cannot be specified with the default memory policy"
+    exit 1
+fi
+
+if [[ "$MEMORY_POLICY" != "default" && -z "$NUMA_NODES" ]]; then
+    echo "NUMA nodes must be specified for $MEMORY_POLICY"
+    exit 1
+fi
+
+if [[ -n "$BALANCING" && "$BALANCING" != "--balancing" ]]; then
+    echo "$USAGE"
+    exit 1
+fi
+
+if [[ "$BALANCING" == "--balancing" && "$MEMORY_POLICY" != "membind" ]]; then
+    echo "--balancing can only be used with membind"
     exit 1
 fi
 
@@ -66,7 +96,7 @@ CSV_FILE="$OUTPUT_DIR/gemm_core_${ARCHITECTURE}_${SIZE}_${PRECISION}_${LIBRARY}_
 
 mkdir -p "$OUTPUT_DIR"
 
-echo "library,precision,architecture,node,m,k,n,cores,threads,affinity,repetition,time_s,gflops" > "$CSV_FILE"
+echo "library,precision,architecture,node,m,k,n,cores,threads,affinity,memory_policy,numa_nodes,repetition,time_s,gflops" > "$CSV_FILE"
 
 # run experiment
 echo "start core scalability"
@@ -77,6 +107,9 @@ echo "host: $HOST"
 echo "matrix size: $SIZE"
 echo "maximum cores: $MAX_CORES"
 echo "affinity: $AFFINITY"
+echo "memory policy: $MEMORY_POLICY"
+echo "NUMA nodes: ${NUMA_NODES:-none}"
+echo "balancing: ${BALANCING:-disabled}"
 echo "repetitions: $REPETITIONS"
 
 for REPETITION in $(seq 1 "$REPETITIONS"); do
@@ -84,9 +117,21 @@ for REPETITION in $(seq 1 "$REPETITIONS"); do
         export OMP_NUM_THREADS="$CORES"
         export BLIS_NUM_THREADS="$CORES"
         EXECUTABLE="$BUILD_DIR/gemm_${LIBRARY}_${PRECISION}.x"
-        RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
+
+        if [[ "$MEMORY_POLICY" == "default" ]]; then
+            RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
+        elif [[ "$MEMORY_POLICY" == "interleave" ]]; then
+            RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" numactl --interleave="$NUMA_NODES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
+        elif [[ "$MEMORY_POLICY" == "membind" ]]; then
+            if [[ "$BALANCING" == "--balancing" ]]; then
+                RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" numactl --membind="$NUMA_NODES" --balancing "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
+            else
+                RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" numactl --membind="$NUMA_NODES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
+            fi
+        fi
+
         IFS=',' read -r M K N TIME GFLOPS <<< "$RESULT"
-        echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
+        echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$MEMORY_POLICY,$NUMA_NODES,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
     done
 done
 

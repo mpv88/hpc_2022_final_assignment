@@ -91,7 +91,7 @@ def plot_size_scalability(data, output_dir):
             tpp = calculate_tpp(architecture, precision, cores)
             ax.axhline(tpp, linestyle='--', label=f'TPP ({tpp:.1f} GFLOPS)')
 
-        ax.set_xlabel('Matrix size (M = N = K)')
+        ax.set_xlabel('Matrix size (M = K = N)')
         ax.set_ylabel('Performance (GFLOPS)')
         ax.set_title(
             f'GEMM Matrix-Size Scalability: {architecture} - '
