@@ -17,7 +17,7 @@ TPP_PER_CORE = {
 
 
 def load_csv_files(results_dir):
-    files = sorted(glob.glob(os.path.join(results_dir, '*.csv')))
+    files = sorted(glob.glob(os.path.join(results_dir, 'gemm_*.csv')))
 
     if not files:
         raise FileNotFoundError(f'no CSV files found in {results_dir}')
@@ -45,19 +45,25 @@ def classify_experiment(filename):
     raise ValueError(f'unknown experiment type: {name}')
 
 
-def calculate_statistics(data):
+def calculate_statistics(data, experiment):
+    data = data[data['experiment'] == experiment].copy()
+
     group_columns = [
-        'experiment', 'library', 'precision', 'architecture', 'node',
-        'm', 'k', 'n', 'cores', 'threads', 'affinity'
+        'experiment', 'library', 'precision', 'architecture',
+        'm', 'k', 'n', 'cores', 'threads', 'affinity',
+        'memory_policy', 'numa_nodes'
     ]
 
-    statistics = (data.groupby(group_columns, as_index=False).agg(
-        mean_gflops=('gflops', 'mean'),
-        std_gflops=('gflops', 'std'),
-        mean_time_s=('time_s', 'mean'),
-        std_time_s=('time_s', 'std'),
-        repetitions=('gflops', 'count')
-    ))
+    statistics = (
+        data.groupby(group_columns, dropna=False, as_index=False)
+        .agg(
+            avg_time_s=('time_s', 'mean'),
+            std_time_s=('time_s', 'std'),
+            avg_gflops=('gflops', 'mean'),
+            std_gflops=('gflops', 'std'),
+            repetitions=('repetition', 'count'),
+        )
+    )
 
     return statistics
 
@@ -67,10 +73,8 @@ def calculate_tpp(architecture, precision, cores):
 
 
 def plot_size_scalability(data, output_dir):
-    size_data = data[data['experiment'] == 'size']
-
-    for (architecture, node, precision, affinity), group in size_data.groupby(
-            ['architecture', 'node', 'precision', 'affinity']):
+    for (architecture, precision, affinity), group in data.groupby(
+            ['architecture', 'precision', 'affinity']):
 
         cores = group['cores'].iloc[0]
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -80,7 +84,7 @@ def plot_size_scalability(data, output_dir):
 
             ax.errorbar(
                 library_data['m'],
-                library_data['mean_gflops'],
+                library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
                 marker='o',
                 capsize=3,
@@ -89,7 +93,11 @@ def plot_size_scalability(data, output_dir):
 
         if architecture in TPP_PER_CORE:
             tpp = calculate_tpp(architecture, precision, cores)
-            ax.axhline(tpp, linestyle='--', label=f'TPP ({tpp:.1f} GFLOPS)')
+            ax.axhline(
+                tpp,
+                linestyle='--',
+                label=f'TPP ({tpp:.1f} GFLOPS)'
+            )
 
         ax.set_xlabel('Matrix size (M = K = N)')
         ax.set_ylabel('Performance (GFLOPS)')
@@ -109,10 +117,8 @@ def plot_size_scalability(data, output_dir):
 
 
 def plot_core_scalability(data, output_dir):
-    core_data = data[data['experiment'] == 'core']
-
-    for (architecture, node, precision, m, k, n, affinity), group in core_data.groupby(
-            ['architecture', 'node', 'precision', 'm', 'k', 'n', 'affinity']):
+    for (architecture, precision, m, k, n, affinity), group in data.groupby(
+            ['architecture', 'precision', 'm', 'k', 'n', 'affinity']):
 
         fig, ax = plt.subplots(figsize=(8, 5))
 
@@ -121,7 +127,7 @@ def plot_core_scalability(data, output_dir):
 
             ax.errorbar(
                 library_data['cores'],
-                library_data['mean_gflops'],
+                library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
                 marker='o',
                 capsize=3,
@@ -131,13 +137,20 @@ def plot_core_scalability(data, output_dir):
         if architecture in TPP_PER_CORE:
             cores = group['cores'].sort_values().unique()
             tpp = calculate_tpp(architecture, precision, cores)
-            ax.plot(cores, tpp, linestyle='--', label='TPP')
+
+            ax.plot(
+                cores,
+                tpp,
+                linestyle='--',
+                label=f'TPP ({TPP_PER_CORE[architecture][precision]:.1f} GFLOPS/core)'
+            )
 
         ax.set_xlabel('Number of cores')
         ax.set_ylabel('Performance (GFLOPS)')
         ax.set_title(
             f'GEMM Core Scalability: {architecture} - '
-            f'{precision.upper()} - {affinity} - M=N=K={int(m)}'
+            f'{precision.upper()} - {affinity} - '
+            f'M=K=N={int(m)}'
         )
         ax.legend()
         ax.grid(True, alpha=0.3)
@@ -151,10 +164,8 @@ def plot_core_scalability(data, output_dir):
 
 
 def plot_size_affinity_comparison(data, output_dir):
-    size_data = data[data['experiment'] == 'size']
-
-    for (architecture, node, precision), group in size_data.groupby(
-            ['architecture', 'node', 'precision']):
+    for (architecture, precision), group in data.groupby(
+            ['architecture', 'precision']):
 
         affinities = group['affinity'].unique()
 
@@ -171,7 +182,7 @@ def plot_size_affinity_comparison(data, output_dir):
 
             ax.errorbar(
                 library_data['m'],
-                library_data['mean_gflops'],
+                library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
                 marker='o',
                 capsize=3,
@@ -180,7 +191,11 @@ def plot_size_affinity_comparison(data, output_dir):
 
         if architecture in TPP_PER_CORE:
             tpp = calculate_tpp(architecture, precision, cores)
-            ax.axhline(tpp, linestyle='--', label=f'TPP ({tpp:.1f} GFLOPS)')
+            ax.axhline(
+                tpp,
+                linestyle='--',
+                label=f'TPP ({tpp:.1f} GFLOPS)'
+            )
 
         ax.set_xlabel('Matrix size (M = K = N)')
         ax.set_ylabel('Performance (GFLOPS)')
@@ -201,10 +216,8 @@ def plot_size_affinity_comparison(data, output_dir):
 
 
 def plot_core_affinity_comparison(data, output_dir):
-    core_data = data[data['experiment'] == 'core']
-
-    for (architecture, node, precision, m, k, n), group in core_data.groupby(
-            ['architecture', 'node', 'precision', 'm', 'k', 'n']):
+    for (architecture, precision, m, k, n), group in data.groupby(
+            ['architecture', 'precision', 'm', 'k', 'n']):
 
         affinities = group['affinity'].unique()
 
@@ -220,7 +233,7 @@ def plot_core_affinity_comparison(data, output_dir):
 
             ax.errorbar(
                 library_data['cores'],
-                library_data['mean_gflops'],
+                library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
                 marker='o',
                 capsize=3,
@@ -230,6 +243,7 @@ def plot_core_affinity_comparison(data, output_dir):
         if architecture in TPP_PER_CORE:
             cores = group['cores'].sort_values().unique()
             tpp = calculate_tpp(architecture, precision, cores)
+
             ax.plot(
                 cores,
                 tpp,
@@ -241,7 +255,8 @@ def plot_core_affinity_comparison(data, output_dir):
         ax.set_ylabel('Performance (GFLOPS)')
         ax.set_title(
             f'GEMM Core Scalability: {architecture} - '
-            f'{precision.upper()} - Affinity Comparison - M=N=K={int(m)}'
+            f'{precision.upper()} - Affinity Comparison - '
+            f'M=K=N={int(m)}'
         )
         ax.legend()
         ax.grid(True, alpha=0.3)
@@ -256,10 +271,8 @@ def plot_core_affinity_comparison(data, output_dir):
 
 
 def plot_core_speedup(data, output_dir):
-    core_data = data[data['experiment'] == 'core']
-
-    for (architecture, node, precision, m, k, n, affinity), group in core_data.groupby(
-            ['architecture', 'node', 'precision', 'm', 'k', 'n', 'affinity']):
+    for (architecture, precision, m, k, n, affinity), group in data.groupby(
+            ['architecture', 'precision', 'm', 'k', 'n', 'affinity']):
 
         fig, ax = plt.subplots(figsize=(8, 5))
 
@@ -270,14 +283,18 @@ def plot_core_speedup(data, output_dir):
             if baseline.empty:
                 continue
 
-            baseline_time = baseline['mean_time_s'].iloc[0]
+            baseline_time = baseline['avg_time_s'].iloc[0]
             baseline_std = baseline['std_time_s'].iloc[0]
-            speedup = baseline_time / library_data['mean_time_s']
+
+            speedup = baseline_time / library_data['avg_time_s']
 
             relative_error = (
-                                     (baseline_std / baseline_time) ** 2
-                                     + (library_data['std_time_s'] / library_data['mean_time_s']) ** 2
-                             ) ** 0.5
+                (baseline_std / baseline_time) ** 2
+                + (
+                    library_data['std_time_s']
+                    / library_data['avg_time_s']
+                ) ** 2
+            ) ** 0.5
 
             speedup_std = speedup * relative_error
 
@@ -297,7 +314,7 @@ def plot_core_speedup(data, output_dir):
         ax.set_ylabel('Speedup')
         ax.set_title(
             f'GEMM Core Scalability: Speedup - {architecture} - '
-            f'{precision.upper()} - {affinity} - M=N=K={int(m)}'
+            f'{precision.upper()} - {affinity} - M=K=N={int(m)}'
         )
         ax.legend()
         ax.grid(True, alpha=0.3)
@@ -318,18 +335,30 @@ def main():
     output_dir = script_dir
 
     data = load_csv_files(results_dir)
-    statistics = calculate_statistics(data)
+
+    size_statistics = calculate_statistics(data, 'size')
+    core_statistics = calculate_statistics(data, 'core')
+
+    size_file = os.path.join(results_dir, 'aggregated_size.csv')
+    core_file = os.path.join(results_dir, 'aggregated_core.csv')
+
+    size_statistics.to_csv(size_file, index=False)
+    core_statistics.to_csv(core_file, index=False)
 
     print(f'loaded measurements: {len(data)}')
-    print(f'loaded experiments: {data["experiment"].unique().tolist()}')
-    print(f'statistical groups: {len(statistics)}')
+    print(f'size measurements: {len(data[data["experiment"] == "size"])}')
+    print(f'core measurements: {len(data[data["experiment"] == "core"])}')
+    print(f'aggregated size groups: {len(size_statistics)}')
+    print(f'aggregated core groups: {len(core_statistics)}')
 
-    plot_size_scalability(statistics, output_dir)
-    plot_core_scalability(statistics, output_dir)
-    plot_core_speedup(statistics, output_dir)
-    plot_size_affinity_comparison(statistics, output_dir)
-    plot_core_affinity_comparison(statistics, output_dir)
+    plot_size_scalability(size_statistics, output_dir)
+    plot_core_scalability(core_statistics, output_dir)
+    plot_core_speedup(core_statistics, output_dir)
+    plot_size_affinity_comparison(size_statistics, output_dir)
+    plot_core_affinity_comparison(core_statistics, output_dir)
 
+    print(f'aggregated size data: {size_file}')
+    print(f'aggregated core data: {core_file}')
     print(f'plots saved to: {output_dir}')
 
 
