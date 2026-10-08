@@ -1,0 +1,6 @@
+library,precision,architecture,node,m,k,n,cores,threads,affinity,memory_policy,numa_nodes,repetition,time_s,gflops
+mkl,double,EPYC,epyc003.hpc.rd.areasciencepark.it,20000,20000,20000,60,60,close,default,,10,24.306139588,658.269897
+mkl,double,EPYC,epyc003.hpc.rd.areasciencepark.it,20000,20000,20000,61,61,close,default,,10,22.144235400,722.535672
+mkl,double,EPYC,epyc003.hpc.rd.areasciencepark.it,20000,20000,20000,62,62,close,default,,10,22.787550236,702.137783
+mkl,double,EPYC,epyc003.hpc.rd.areasciencepark.it,20000,20000,20000,63,63,close,default,,10,22.206854379,720.498263
+mkl,double,EPYC,epyc003.hpc.rd.areasciencepark.it,20000,20000,20000,64,64,close,default,,10,24.161623424,662.207159
