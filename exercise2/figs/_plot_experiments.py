@@ -16,6 +16,22 @@ TPP_PER_CORE = {
 }
 
 
+COLORS = {
+    ('blis', 'spread'): '#4C78A8',
+    ('blis', 'close'): '#9ECAE1',
+    ('openblas', 'spread'): '#E45756',
+    ('openblas', 'close'): '#F28E8E',
+    ('mkl', 'spread'): '#7A5195',
+    ('mkl', 'close'): '#B79AC8',
+}
+
+
+CORE_TICKS = {
+    'THIN': [1, 2, 4, 6, 8, 10, 12],
+    'EPYC': [1, 8, 16, 24, 32, 40, 48, 56, 64],
+}
+
+
 def load_csv_files(results_dir):
     files = sorted(glob.glob(os.path.join(results_dir, 'gemm_*.csv')))
 
@@ -72,6 +88,10 @@ def calculate_tpp(architecture, precision, cores):
     return TPP_PER_CORE[architecture][precision] * cores
 
 
+def get_color(library, affinity):
+    return COLORS[(library.lower(), affinity)]
+
+
 def plot_size_scalability(data, output_dir):
     for (architecture, precision, affinity), group in data.groupby(
             ['architecture', 'precision', 'affinity']):
@@ -81,13 +101,19 @@ def plot_size_scalability(data, output_dir):
 
         for library, library_data in group.groupby('library'):
             library_data = library_data.sort_values('m')
+            color = get_color(library, affinity)
 
             ax.errorbar(
                 library_data['m'],
                 library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
-                marker='o',
+                color=color,
+                linestyle='-',
+                marker=None,
+                linewidth=1.8,
+                elinewidth=1.0,
                 capsize=3,
+                capthick=1.0,
                 label=library.upper()
             )
 
@@ -95,9 +121,14 @@ def plot_size_scalability(data, output_dir):
             tpp = calculate_tpp(architecture, precision, cores)
             ax.axhline(
                 tpp,
+                color='black',
                 linestyle='--',
+                linewidth=1.2,
                 label=f'TPP ({tpp:.1f} GFLOPS)'
             )
+
+        ax.set_ylim(bottom=0)
+        ax.set_xticks(range(2000, 20001, 2000))
 
         ax.set_xlabel('Matrix size (M = K = N)')
         ax.set_ylabel('Performance (GFLOPS)')
@@ -124,13 +155,19 @@ def plot_core_scalability(data, output_dir):
 
         for library, library_data in group.groupby('library'):
             library_data = library_data.sort_values('cores')
+            color = get_color(library, affinity)
 
             ax.errorbar(
                 library_data['cores'],
                 library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
-                marker='o',
+                color=color,
+                linestyle='-',
+                marker=None,
+                linewidth=1.8,
+                elinewidth=1.0,
                 capsize=3,
+                capthick=1.0,
                 label=library.upper()
             )
 
@@ -141,9 +178,15 @@ def plot_core_scalability(data, output_dir):
             ax.plot(
                 cores,
                 tpp,
+                color='black',
                 linestyle='--',
+                linewidth=1.2,
                 label=f'TPP ({TPP_PER_CORE[architecture][precision]:.1f} GFLOPS/core)'
             )
+
+        ax.set_ylim(bottom=0)
+        ax.set_xlim(left=0)
+        ax.set_xticks(CORE_TICKS[architecture])
 
         ax.set_xlabel('Number of cores')
         ax.set_ylabel('Performance (GFLOPS)')
@@ -179,13 +222,19 @@ def plot_size_affinity_comparison(data, output_dir):
                 ['library', 'affinity']):
 
             library_data = library_data.sort_values('m')
+            color = get_color(library, affinity)
 
             ax.errorbar(
                 library_data['m'],
                 library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
-                marker='o',
+                color=color,
+                linestyle='-',
+                marker=None,
+                linewidth=1.8,
+                elinewidth=1.0,
                 capsize=3,
+                capthick=1.0,
                 label=f'{library.upper()} — {affinity}'
             )
 
@@ -193,9 +242,14 @@ def plot_size_affinity_comparison(data, output_dir):
             tpp = calculate_tpp(architecture, precision, cores)
             ax.axhline(
                 tpp,
+                color='black',
                 linestyle='--',
+                linewidth=1.2,
                 label=f'TPP ({tpp:.1f} GFLOPS)'
             )
+
+        ax.set_ylim(bottom=0)
+        ax.set_xticks(range(2000, 20001, 2000))
 
         ax.set_xlabel('Matrix size (M = K = N)')
         ax.set_ylabel('Performance (GFLOPS)')
@@ -230,13 +284,19 @@ def plot_core_affinity_comparison(data, output_dir):
                 ['library', 'affinity']):
 
             library_data = library_data.sort_values('cores')
+            color = get_color(library, affinity)
 
             ax.errorbar(
                 library_data['cores'],
                 library_data['avg_gflops'],
                 yerr=library_data['std_gflops'],
-                marker='o',
+                color=color,
+                linestyle='-',
+                marker=None,
+                linewidth=1.8,
+                elinewidth=1.0,
                 capsize=3,
+                capthick=1.0,
                 label=f'{library.upper()} — {affinity}'
             )
 
@@ -247,9 +307,15 @@ def plot_core_affinity_comparison(data, output_dir):
             ax.plot(
                 cores,
                 tpp,
+                color='black',
                 linestyle='--',
+                linewidth=1.2,
                 label=f'TPP ({TPP_PER_CORE[architecture][precision]:.1f} GFLOPS/core)'
             )
+
+        ax.set_ylim(bottom=0)
+        ax.set_xlim(left=0)
+        ax.set_xticks(CORE_TICKS[architecture])
 
         ax.set_xlabel('Number of cores')
         ax.set_ylabel('Performance (GFLOPS)')
@@ -297,19 +363,37 @@ def plot_core_speedup(data, output_dir):
             ) ** 0.5
 
             speedup_std = speedup * relative_error
+            color = get_color(library, affinity)
 
             ax.errorbar(
                 library_data['cores'],
                 speedup,
                 yerr=speedup_std,
-                marker='o',
+                color=color,
+                linestyle='-',
+                marker=None,
+                linewidth=1.8,
+                elinewidth=1.0,
                 capsize=3,
+                capthick=1.0,
                 label=library.upper()
             )
 
         cores = group['cores'].sort_values().unique()
 
-        ax.plot(cores, cores, linestyle='--', label='Ideal speedup')
+        ax.plot(
+            cores,
+            cores,
+            color='black',
+            linestyle='--',
+            linewidth=1.2,
+            label='Ideal speedup'
+        )
+
+        ax.set_ylim(bottom=0)
+        ax.set_xlim(left=0)
+        ax.set_xticks(CORE_TICKS[architecture])
+
         ax.set_xlabel('Number of cores')
         ax.set_ylabel('Speedup')
         ax.set_title(
