@@ -22,7 +22,7 @@ USAGE="usage: sbatch --partition=PARTITION --cpus-per-task=CORES size_scalabilit
 if [[ "$ARCHITECTURE" == "EPYC" ]]; then
     CORES=64
 elif [[ "$ARCHITECTURE" == "THIN" ]]; then
-    CORES=24
+    CORES=12
 else
     echo "$USAGE"
     exit 1
@@ -87,7 +87,7 @@ export BLIS_NUM_THREADS="$CORES"
 export LD_LIBRARY_PATH="$HOME/myblis/${ARCHITECTURE,,}/lib:$LD_LIBRARY_PATH"
 
 # set parameters
-REPETITIONS=10
+REPETITIONS=5
 SIZE_START=2000
 SIZE_END=20000
 SIZE_STEP=500
@@ -96,7 +96,8 @@ SIZE_STEP=500
 NOW=$(date +"%Y-%m-%d_%H-%M-%S")
 HOST=$(hostname)
 OUTPUT_DIR="results"
-CSV_FILE="$OUTPUT_DIR/gemm_size_${ARCHITECTURE}_${PRECISION}_${LIBRARY}_${AFFINITY}_${NOW}.csv"
+NUMA_TAG=${NUMA_NODES:-none}
+CSV_FILE="$OUTPUT_DIR/gemm_size_${ARCHITECTURE}_${PRECISION}_${LIBRARY}_${AFFINITY}_${MEMORY_POLICY}_${NUMA_TAG}_${NOW}.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -126,14 +127,14 @@ for REPETITION in $(seq 1 "$REPETITIONS"); do
             RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" numactl --interleave="$NUMA_NODES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
         elif [[ "$MEMORY_POLICY" == "membind" ]]; then
             if [[ "$BALANCING" == "--balancing" ]]; then
-                RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" numactl --membind="$NUMA_NODES" --balancing "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
+                RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" numactl --balancing --membind="$NUMA_NODES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
             else
                 RESULT=$(srun --exclusive -n1 --cpus-per-task="$CORES" numactl --membind="$NUMA_NODES" "$EXECUTABLE" "$SIZE" "$SIZE" "$SIZE")
             fi
         fi
 
         IFS=',' read -r M K N TIME GFLOPS <<< "$RESULT"
-        echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$MEMORY_POLICY,$NUMA_NODES,$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
+        echo "$LIBRARY,$PRECISION,$ARCHITECTURE,$HOST,$M,$K,$N,$CORES,$OMP_NUM_THREADS,$OMP_PROC_BIND,$MEMORY_POLICY,\"$NUMA_NODES\",$REPETITION,$TIME,$GFLOPS" >> "$CSV_FILE"
     done
 done
 
