@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 TPP_PER_CORE = {
     'EPYC': {
-        'float': 83.2,
-        'double': 41.6,
+        'float': 51.2,
+        'double': 25.6,
     },
     'THIN': {
         'float': 147.2,

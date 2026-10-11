@@ -62,6 +62,9 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 
+# VS Code directories
+.vscode/
+
 # build directories
 build/
 
@@ -88,3 +91,6 @@ build/
 # HPC Slurm job output logs
 /exercise1/job_outputs/
 /exercise2/job_outputs/
+
+# report Latex building
+/report/
