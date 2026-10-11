@@ -92,5 +92,8 @@ build/
 /exercise1/job_outputs/
 /exercise2/job_outputs/
 
+# support files exercise 2
+/exercise2/figs/*.py
+
 # report Latex building
 /report/
