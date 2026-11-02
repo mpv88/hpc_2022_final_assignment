@@ -98,7 +98,7 @@ target_compile_options(gol_parallel PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(test_pgm PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(test_grid PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_options(test_evolution_common PRIVATE -Wall -Wextra -Wpedantic)
-target_compile_options(test_evolution_fog PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(test_evolution_fog PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
 
 target_compile_definitions(gol_serial PRIVATE _POSIX_C_SOURCE=200809L)
 target_compile_definitions(gol_parallel PRIVATE _POSIX_C_SOURCE=200809L)

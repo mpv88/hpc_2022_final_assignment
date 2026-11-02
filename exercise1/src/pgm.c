@@ -52,7 +52,10 @@ int pgm_read(const char *filename, uint8_t **data, int *width, int *height)
     }
 
     fgetc(file);
-    fgets(line, sizeof(line), file);
+    if (fgets(line, sizeof(line), file) == NULL) {
+        fclose(file);
+        return -2;
+    }
 
     if (fscanf(file, "%d %d", width, height) != 2) {
         fclose(file);
@@ -116,9 +119,9 @@ int pgm_read_mpi(const char *filename, uint8_t **data, int *width, int *local_ro
                 header_result = -2;
             } else {
                 fgetc(header_file);
-                fgets(line, sizeof(line), header_file);
-
-                if (fscanf(header_file, "%d %d", width, height) != 2) {
+                if (fgets(line, sizeof(line), header_file) == NULL) {
+                    header_result = -2;
+                } else if (fscanf(header_file, "%d %d", width, height) != 2) {
                     header_result = -2;
                 } else if (fscanf(header_file, "%d", &maxval) != 1 || maxval != PGM_MAXVAL) {
                     header_result = -2;

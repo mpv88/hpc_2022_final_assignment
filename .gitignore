@@ -71,7 +71,7 @@ build/
 # generated validation files
 /exercise1/patterns/validate/rle/*
 /exercise1/patterns/validate/pgm/*
-/exercise1/patterns/output/*
+/exercise1/patterns/output/rle_from_pgm/*
 
 # except initial reference patterns & validation scripts
 !/exercise1/patterns/validate/rle/*_00000.rle
@@ -83,17 +83,13 @@ build/
 # test pgm images
 /exercise1/tests/images/*
 
-# NOTE: to be removed when final version is ready
 # results & final plots
-/exercise1/figs/*
-/exercise1/results/*.csv
+/exercise1/figs/*.py
+/exercise2/figs/*.py
 
 # HPC Slurm job output logs
 /exercise1/job_outputs/
 /exercise2/job_outputs/
-
-# support files exercise 2
-/exercise2/figs/*.py
 
 # report Latex building
 /report/
