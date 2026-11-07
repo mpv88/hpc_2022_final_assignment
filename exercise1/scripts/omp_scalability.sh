@@ -23,20 +23,14 @@ REPEATS=${REPEATS:-5}
 OMP_PLACES=cores
 OMP_PROC_BIND=spread
 
-case "$ARCH" in
-    EPYC)
-        CORES_PER_SOCKET=64
-        THREAD_COUNTS=(1 2 4 8 16 32 64)
-        ;;
-    THIN)
-        CORES_PER_SOCKET=12
-        THREAD_COUNTS=(1 2 4 8 12)
-        ;;
-    *)
-        echo "Error: architecture must be EPYC or THIN"
-        exit 1
-        ;;
-esac
+if [[ "$ARCH" == "EPYC" ]]; then
+    CORES_PER_SOCKET=64
+elif [[ "$ARCH" == "THIN" ]]; then
+    CORES_PER_SOCKET=12
+else
+    echo "Error: architecture must be EPYC or THIN"
+    exit 1
+fi
 
 NODES=$SLURM_JOB_NUM_NODES
 
@@ -57,7 +51,9 @@ export OMP_DYNAMIC=FALSE
 
 # output
 RESULTS_DIR="results/omp_scalability"
+JOB_GRIDS_DIR="patterns/output/job_grids"
 mkdir -p "$RESULTS_DIR"
+mkdir -p "$JOB_GRIDS_DIR"
 CSV_FILE="${RESULTS_DIR}/gol_omp_${ARCH}_${NODES}nodes_e${EVOLUTION}_${FOG_LABEL}_job${SLURM_JOB_ID}.csv"
 
 echo "evolution,grid_width,grid_height,steps,mpi_tasks,omp_threads,repetition,read_time,evolution_time,write_time,total_time" > "$CSV_FILE"
@@ -87,14 +83,14 @@ for GRID_SIZE in "${GRID_SIZE_ARRAY[@]}"; do
 
     # job-specific input name to avoid output-file conflicts
     RUN_PATTERN="${PATTERN_NAME}_job${SLURM_JOB_ID}"
-    cp "$INITIAL_FILE" "patterns/output/${RUN_PATTERN}_00000.pgm"
+    cp "$INITIAL_FILE" "${JOB_GRIDS_DIR}/${RUN_PATTERN}_00000.pgm"
 
     for REPETITION in $(seq 1 "$REPEATS"); do
         export BENCHMARK_REPETITION=$REPETITION
 
-        for THREADS in "${THREAD_COUNTS[@]}"; do
+        for THREADS in $(seq 1 "$CORES_PER_SOCKET"); do
             export OMP_NUM_THREADS=$THREADS
-            mpirun -np "$SLURM_NTASKS" --map-by "ppr:1:socket:PE=${CORES_PER_SOCKET}" --bind-to core ./build/gol_parallel -r -f "$RUN_PATTERN" -n "$STEPS" -s 0 -e "$EVOLUTION" -b "${FOG_ARGS[@]}" >> "$CSV_FILE"
+            mpirun -np "$SLURM_NTASKS" --map-by "ppr:1:socket:PE=${CORES_PER_SOCKET}" --bind-to core ./build/gol_parallel -r -f "${JOB_GRIDS_DIR}/${RUN_PATTERN}" -n "$STEPS" -s 0 -e "$EVOLUTION" -b "${FOG_ARGS[@]}" >> "$CSV_FILE"
         done
     done
 done
