@@ -52,8 +52,8 @@ export OMP_DYNAMIC=FALSE
 # output
 RESULTS_DIR="results/omp_scalability"
 JOB_GRIDS_DIR="patterns/output/job_grids"
-mkdir -p "$RESULTS_DIR"
-mkdir -p "$JOB_GRIDS_DIR"
+mkdir -p "$RESULTS_DIR" "$JOB_GRIDS_DIR"
+
 CSV_FILE="${RESULTS_DIR}/gol_omp_${ARCH}_${NODES}nodes_e${EVOLUTION}_${FOG_LABEL}_job${SLURM_JOB_ID}.csv"
 
 echo "evolution,grid_width,grid_height,steps,mpi_tasks,omp_threads,repetition,read_time,evolution_time,write_time,total_time" > "$CSV_FILE"
@@ -90,7 +90,14 @@ for GRID_SIZE in "${GRID_SIZE_ARRAY[@]}"; do
 
         for THREADS in $(seq 1 "$CORES_PER_SOCKET"); do
             export OMP_NUM_THREADS=$THREADS
-            mpirun -np "$SLURM_NTASKS" --map-by "ppr:1:socket:PE=${CORES_PER_SOCKET}" --bind-to core ./build/gol_parallel -r -f "${JOB_GRIDS_DIR}/${RUN_PATTERN}" -n "$STEPS" -s 0 -e "$EVOLUTION" -b "${FOG_ARGS[@]}" >> "$CSV_FILE"
+
+            mpirun -np "$SLURM_NTASKS" \
+                --map-by "ppr:1:socket:PE=${CORES_PER_SOCKET}" \
+                --bind-to core \
+                ./build/gol_parallel \
+                -r -f "job_grids/${RUN_PATTERN}" \
+                -n "$STEPS" -s 0 -e "$EVOLUTION" -b "${FOG_ARGS[@]}" \
+                >> "$CSV_FILE"
         done
     done
 done
