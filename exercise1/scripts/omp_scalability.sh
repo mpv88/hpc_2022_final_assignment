@@ -51,8 +51,7 @@ export OMP_DYNAMIC=FALSE
 
 # output
 RESULTS_DIR="results/omp_scalability"
-JOB_GRIDS_DIR="patterns/output/job_grids"
-mkdir -p "$RESULTS_DIR" "$JOB_GRIDS_DIR"
+mkdir -p "$RESULTS_DIR"
 
 CSV_FILE="${RESULTS_DIR}/gol_omp_${ARCH}_${NODES}nodes_e${EVOLUTION}_${FOG_LABEL}_job${SLURM_JOB_ID}.csv"
 
@@ -81,10 +80,6 @@ for GRID_SIZE in "${GRID_SIZE_ARRAY[@]}"; do
         exit 1
     fi
 
-    # job-specific input name to avoid output-file conflicts
-    RUN_PATTERN="${PATTERN_NAME}_job${SLURM_JOB_ID}"
-    cp "$INITIAL_FILE" "${JOB_GRIDS_DIR}/${RUN_PATTERN}_00000.pgm"
-
     for REPETITION in $(seq 1 "$REPEATS"); do
         export BENCHMARK_REPETITION=$REPETITION
 
@@ -95,7 +90,7 @@ for GRID_SIZE in "${GRID_SIZE_ARRAY[@]}"; do
                 --map-by "ppr:1:socket:PE=${CORES_PER_SOCKET}" \
                 --bind-to core \
                 ./build/gol_parallel \
-                -r -f "job_grids/${RUN_PATTERN}" \
+                -r -f "$PATTERN_NAME" \
                 -n "$STEPS" -s 0 -e "$EVOLUTION" -b "${FOG_ARGS[@]}" \
                 >> "$CSV_FILE"
         done
