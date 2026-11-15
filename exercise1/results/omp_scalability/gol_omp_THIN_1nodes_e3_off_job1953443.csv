@@ -1,0 +1,5 @@
+evolution,grid_width,grid_height,steps,mpi_tasks,omp_threads,repetition,read_time,evolution_time,write_time,total_time
+white-black,30000,30000,100,2,9,5,1.228380,65.079990,0.890859,67.199230
+white-black,30000,30000,100,2,10,5,1.211100,58.741768,0.898478,60.851346
+white-black,30000,30000,100,2,11,5,1.237185,53.319155,0.895053,55.451394
+white-black,30000,30000,100,2,12,5,1.227318,49.164837,1.106225,51.498380

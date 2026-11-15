@@ -36,10 +36,10 @@ if [[ "$CONFIG" == "A" ]]; then
 
     if [[ "$ARCH" == "EPYC" ]]; then
         MPI_TASKS_LIST=(1 2 4 8 16 32 64 128)
-        GRID_SIZES=(3000 4243 6000 8485 12000 16971 24000 33941)
+        GRID_SIZES=(6000 8485 12000 16971 24000 33941 48000 67882)
     else
         MPI_TASKS_LIST=(1 2 4 8 16 24)
-        GRID_SIZES=(3000 4243 6000 8485 12000 14697)
+        GRID_SIZES=(6000 8485 12000 16971 24000 29394)
     fi
 
 elif [[ "$CONFIG" == "B" ]]; then
@@ -47,7 +47,7 @@ elif [[ "$CONFIG" == "B" ]]; then
     OMP_THREADS=$CORES_PER_SOCKET
 
     MPI_TASKS_LIST=(1 2 3 4)
-    GRID_SIZES=(3000 4243 5196 6000)
+    GRID_SIZES=(12000 16971 20785 24000)
 
 else
     echo "Error: configuration must be A or B"
